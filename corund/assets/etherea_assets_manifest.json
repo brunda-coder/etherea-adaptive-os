@@ -1,0 +1,15 @@
+{
+  "audio": [
+    "core/assets/audio/etherea_theme_a.wav",
+    "core/assets/audio/etherea_theme_b.wav",
+    "core/assets/audio/etherea_theme_c.wav"
+  ],
+  "animations": [
+    "core/assets/animations/splash_pulse.json"
+  ],
+  "models": [
+    "core/assets/models/aurora_placeholder.gltf",
+    "core/assets/models/aurora_placeholder.bin"
+  ],
+  "notes": "Placeholder premium assets (synthetic, non-copyright). Replace with your real packs later."
+}

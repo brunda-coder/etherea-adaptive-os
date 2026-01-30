@@ -1,0 +1,21 @@
+.env
+__pycache__/
+*.pyc
+*.log
+data/*
+!data/apps.json
+
+# Never track secrets/tokens by accident
+ghp_*
+*.token
+*.pat
+
+# Never track secrets/tokens by accident
+ghp_*
+*.token
+*.pat
+
+# Ignore local backups
+*.bak
+*.bak_*
+safe_check_report*.txt

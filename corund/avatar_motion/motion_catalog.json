@@ -1,0 +1,25 @@
+{
+  "idle": [
+    "idle_breathe_01",
+    "idle_thinking_01"
+  ],
+  "explain": [
+    "explain_loop_01",
+    "point_right_01",
+    "emphasize_01"
+  ],
+  "emotion": {
+    "calm": ["idle_breathe_01"],
+    "confident": ["stance_confident_01"],
+    "playful": ["hype_pose_01"],
+    "reassuring": ["comfort_gesture_01"]
+  },
+  "dance": [
+    "dance_hype_01",
+    "dance_hype_02"
+  ],
+  "sing": [
+    "sing_soft_loop",
+    "sing_power_loop"
+  ]
+}

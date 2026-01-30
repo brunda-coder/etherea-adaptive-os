@@ -1,0 +1,44 @@
+{
+  "study": {
+    "music_profile": "focus_calm",
+    "ui_layout": "learning",
+    "notifications": "minimal",
+    "ring_mode": "learning",
+    "avatar_tone": "gentle_focus"
+  },
+  "coding": {
+    "music_profile": "flow",
+    "ui_layout": "builder",
+    "notifications": "minimal",
+    "ring_mode": "builder",
+    "avatar_tone": "sharp_helpful"
+  },
+  "meeting": {
+    "music_profile": "soft",
+    "ui_layout": "meeting",
+    "notifications": "standard",
+    "ring_mode": "meeting",
+    "avatar_tone": "professional"
+  },
+  "deep_work": {
+    "music_profile": "deep_focus",
+    "ui_layout": "deep_work",
+    "notifications": "silent",
+    "ring_mode": "deep_work",
+    "avatar_tone": "quiet_flow"
+  },
+  "exam": {
+    "music_profile": "silence",
+    "ui_layout": "exam",
+    "notifications": "silent",
+    "ring_mode": "exam",
+    "avatar_tone": "strict_calm"
+  },
+  "calm": {
+    "music_profile": "ambient",
+    "ui_layout": "calm",
+    "notifications": "minimal",
+    "ring_mode": "calm",
+    "avatar_tone": "gentle_support"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "style": "high-res 3D soft disney non-human non-anime",
+  "supported_languages": [
+    "English",
+    "Hindi",
+    "Kannada",
+    "Tamil",
+    "Telugu"
+  ],
+  "task_plan": [
+    "Set up the database",
+    "Implement the AI avatar core",
+    "Integrate emotional intelligence (EI) signals",
+    "Add high resolution 3D visuals for the avatar",
+    "Enable multilingual support (Hindi, Kannada, Tamil, Telugu)",
+    "Create cinematic surprise interactions",
+    "Refine persona to avoid saying 'can't' except when unethical",
+    "Develop step‑by‑step task planning and tracking system"
+  ]
+}

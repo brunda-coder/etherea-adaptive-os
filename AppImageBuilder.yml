@@ -1,0 +1,38 @@
+version: 1
+AppDir:
+  path: AppDir
+  app_info:
+    id: com.etherea.os
+    name: EthereaOS
+    icon: etherea
+    version: latest
+    exec: usr/bin/EthereaOS
+    exec_args: $@
+  files:
+    include:
+      - dist/EthereaOS
+  runtime:
+    env:
+      QT_PLUGIN_PATH: usr/lib/qt/plugins
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: "deb http://archive.ubuntu.com/ubuntu/ jammy main universe"
+    include:
+      - libx11-6
+      - libxcb1
+      - libxkbcommon0
+      - libxkbcommon-x11-0
+      - libnss3
+      - libpulse0
+      - libasound2
+      - libportaudio2
+      - libglib2.0-0
+      - libxext6
+      - libxrender1
+      - libfontconfig1
+      - libfreetype6
+      - libdbus-1-3
+AppImage:
+  arch: x86_64
+  update-information: guess

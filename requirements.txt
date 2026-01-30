@@ -1,0 +1,5 @@
+﻿-r requirements-ui.txt
+-r requirements-core.txt
+
+# Avoid CI breaking on platforms without wheels
+pyaudio==0.2.14; platform_system=="Windows"
