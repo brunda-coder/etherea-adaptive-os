@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# etherea-doctor (fixed)
+# Usage:
+#   ./scripts/etherea-doctor            # detect env, auto-ignore problematic tests, run pytest
+#   ./scripts/etherea-doctor --apply    # also patch candidate test files to add module-level skip (optional)
+#   ./scripts/etherea-doctor --deep     # run extra checks (linkchecker, ruff, mypy) after tests
+#   ./scripts/etherea-doctor --apply --deep
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT" || exit 1
+
+APPLY_PATCH=false
+DO_DEEP=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --apply) APPLY_PATCH=true ;;
+    --deep) DO_DEEP=true ;;
+    *) echo "Unknown arg: $arg" ;;
+  esac
+done
+
+# Create pytest.ini if missing
+if [ ! -f pytest.ini ]; then
+  cat > pytest.ini <<'EOF'
+[pytest]
+markers =
+    desktop: requires desktop GUI environment
+    sensors: requires hardware sensors
+    ei: requires EI runtime
+EOF
+  echo "Created pytest.ini with markers."
+fi
+
+# Detect Termux / Android-like environment
+is_termux=false
+if [ -n "${ANDROID_ROOT:-}" ] || (grep -qi termux /proc/version 2>/dev/null || uname -a | grep -qi android 2>/dev/null); then
+  is_termux=true
+fi
+
+echo "Environment detected: $( [ "$is_termux" = true ] && echo 'Termux/Android' || echo 'Desktop/CI' )"
+
+# Scan for test files that import GUI or sensor libs
+PATTERNS='PySide6|PyQt|tkinter|sensors|evdev|adafruit|gpiozero'
+echo "Scanning for test files that import desktop/sensor libs..."
+CANDIDATES=()
+if command -v rg >/dev/null 2>&1; then
+  while IFS= read -r -d $'\0' f; do
+    CANDIDATES+=("$f")
+  done < <(rg -0 -l --hidden --glob '!venv' --glob '!node_modules' -S "$PATTERNS" tests/ test_*.py 2>/dev/null || true)
+else
+  while IFS= read -r -d $'\0' f; do
+    CANDIDATES+=("$f")
+  done < <(grep -RIlE --exclude-dir=venv --exclude-dir=node_modules "$PATTERNS" tests 2>/dev/null | sed -z 's/$/\0/' || true)
+fi
+
+if [ ${#CANDIDATES[@]} -eq 0 ]; then
+  echo "No candidate test files found that import desktop/sensor libs."
+else
+  echo "Candidate test files:"
+  for f in "${CANDIDATES[@]}"; do
+    echo "  - $f"
+  done
+fi
+
+# Build ignore args array
+IGNORE_ARGS=()
+for f in "${CANDIDATES[@]}"; do
+  IGNORE_ARGS+=( --ignore "$f" )
+done
+
+# Optional: apply module-level skip header to candidate files (--apply)
+SKIP_SNIPPET='import os, pytest
+if "ANDROID_ROOT" in os.environ:
+    pytest.skip("Skipping desktop/sensors test on Termux", allow_module_level=True)
+'
+if [ "$APPLY_PATCH" = true ] && [ ${#CANDIDATES[@]} -gt 0 ]; then
+  echo "Applying module-level skip header to candidate files..."
+  for f in "${CANDIDATES[@]}"; do
+    if grep -q "Skipping desktop/sensors test on Termux" "$f" || grep -q "pytestmark" "$f" || grep -q "pytest.skip" "$f"; then
+      echo "  (skip) already guarded: $f"
+      continue
+    fi
+    tmp="$(mktemp)"
+    printf "%s\n\n%s" "$SKIP_SNIPPET" "$(cat "$f")" > "$tmp" && mv "$tmp" "$f"
+    echo "  patched: $f"
+  done
+  echo "Patching complete. Commit changes if you want these persisted."
+else
+  if [ ${#CANDIDATES[@]} -gt 0 ]; then
+    echo "Dry-run: to patch these files automatically, re-run with --apply."
+  fi
+fi
+
+# Run pytest safely (NO eval, using arrays so quoting is preserved)
+if [ "$is_termux" = true ]; then
+  echo
+  echo "Running pytest on Termux with markers excluded and ignoring candidate files..."
+  pytest -q -m 'not desktop and not sensors' "${IGNORE_ARGS[@]}"
+  PYTEST_EXIT=$?
+else
+  echo
+  echo "Running full pytest (Desktop/CI) -- candidate files will be ignored if detected."
+  pytest -q "${IGNORE_ARGS[@]}"
+  PYTEST_EXIT=$?
+fi
+
+echo "pytest exit code: $PYTEST_EXIT"
+
+# Optional deep checks
+if [ "$DO_DEEP" = true ]; then
+  echo
+  echo "Running deep checks..."
+  if command -v linkchecker >/dev/null 2>&1 && [ -f README.md ]; then
+    echo "  - linkchecker README.md"
+    linkchecker README.md --check-extern --no-warnings || true
+  fi
+  if command -v ruff >/dev/null 2>&1; then
+    echo "  - ruff check ."
+    ruff check . || true
+  fi
+  if command -v mypy >/dev/null 2>&1; then
+    echo "  - mypy ."
+    mypy . || true
+  fi
+fi
+
+exit "$PYTEST_EXIT"

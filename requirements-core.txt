@@ -1,0 +1,11 @@
+requests
+numpy
+pynput
+flask
+
+# --- Etherea Premium Runtime ---
+openai>=1.0.0
+pyttsx3
+SpeechRecognition
+pygame
+edge-tts

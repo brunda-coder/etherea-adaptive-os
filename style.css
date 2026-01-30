@@ -1,0 +1,38 @@
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', sans-serif; }
+body { 
+    background: radial-gradient(circle at top, #1a0b2e, #000); 
+    height:100vh; color:white; display:flex; flex-direction:column; 
+    overflow:hidden; /* Prevents scrolling like a website */
+}
+
+/* Header */
+#top-bar { padding: 15px 20px; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); }
+.dot { height:8px; width:8px; background:#00e676; border-radius:50%; display:inline-block; margin-right:5px; box-shadow:0 0 10px #00e676; }
+#clock { font-weight:bold; opacity:0.8; }
+
+/* Main Container */
+#app-container { flex-grow:1; padding:20px; display:flex; flex-direction:column; gap:20px; }
+
+/* Glass Cards */
+.glass-card { 
+    background:rgba(255,255,255,0.08); backdrop-filter:blur(12px); 
+    border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:20px; 
+}
+
+/* AI Section */
+.ai-section { text-align:center; transition:0.3s; }
+.ai-avatar { font-size:3rem; margin-bottom:10px; color:#b388ff; text-shadow:0 0 20px #651fff; animation:float 3s infinite ease-in-out; }
+@keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+
+/* Metrics */
+.metrics-grid { display:flex; gap:15px; }
+.metric-box { flex:1; text-align:center; font-size:0.8rem; }
+.bar { height:4px; background:rgba(255,255,255,0.1); margin-top:8px; border-radius:2px; }
+.fill { height:100%; background:white; border-radius:2px; }
+
+/* Chat Interface (Fixed at bottom) */
+.chat-interface { flex-grow:1; display:flex; flex-direction:column; background:rgba(0,0,0,0.3); border-radius:16px; padding:15px; border:1px solid rgba(255,255,255,0.05); }
+.chat-history { flex-grow:1; margin-bottom:10px; overflow-y:auto; font-size:0.9rem; opacity:0.8; }
+.chat-input-area { display:flex; gap:10px; }
+input { flex-grow:1; background:rgba(255,255,255,0.1); border:none; padding:10px; border-radius:8px; color:white; outline:none; }
+button { background:#651fff; border:none; color:white; width:40px; height:40px; border-radius:8px; cursor:pointer; }

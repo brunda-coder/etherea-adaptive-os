@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Etherea OS</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header id="top-bar">
+        <div class="status-indicator">
+            <span class="dot online"></span> <span id="system-status">System Normal</span>
+        </div>
+        <div id="clock">00:00</div>
+    </header>
+
+    <main id="app-container">
+        
+        <div class="glass-card ai-section">
+            <div class="ai-avatar"><i class="fa-solid fa-brain"></i></div>
+            <p id="ai-message">Hello, Bru. Professional Mode is active.</p>
+        </div>
+
+        <div class="glass-card metrics-grid">
+            <div class="metric-box">
+                <i class="fa-solid fa-bolt" style="color:#ffd700"></i>
+                <span>Focus</span>
+                <div class="bar"><div class="fill" style="width: 85%"></div></div>
+            </div>
+            <div class="metric-box">
+                <i class="fa-solid fa-heart-pulse" style="color:#ff4081"></i>
+                <span>Stress</span>
+                <div class="bar"><div class="fill" style="width: 12%"></div></div>
+            </div>
+        </div>
+
+        <div class="chat-interface">
+            <div class="chat-history" id="chat-history">
+                </div>
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="Type a command...">
+                <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
