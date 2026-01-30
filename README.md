@@ -1,14 +1,5 @@
 # Etherea — Your Living Adaptive OS 🌌✨ (v3.0.999)
-
-<p align="center">
-  <a href="https://github.com/brunda-coder/etherea-tutorial/releases/download/v3.0.999/EthereaOS_Windows.zip">
-    <img alt="Windows Download" src="https://img.shields.io/badge/Windows-Download%20EXE%20ZIP-00ADEF?style=for-the-badge&logo=windows">
-  </a>
-
-  <a href="https://github.com/brunda-coder/etherea-tutorial/releases/tag/v3.0.999">
-    <img alt="Release" src="https://github.com/brunda-coder/etherea-tutorial/releases/">
-  </a>
-</p>
+---
 
 > **A desktop-first operating environment that adapts to you, not the other way around.**  
 > Built for **interactive professor demos**: you (the presenter) + Etherea (the heroine avatar) co-present like real collaborators.
@@ -16,7 +7,7 @@
 ✅ **Canonical current build doc**: See `ETHEREA_CORE.md` (this is what Etherea should explain as).
 
 ---
-<<<<<<< HEAD
+
 ## ✨ What’s New (v3.0.999)
 
 This release is the **report-aligned demo build** focused on:
