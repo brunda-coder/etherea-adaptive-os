@@ -92,7 +92,7 @@ class AvatarEngine:
         except Exception:
             return "None yet."
 
-    def speak(self, user_text: str) -> str:
+    def speak(self, user_text: str, emotion_tag: Optional[str] = None, **_kwargs) -> str:
         """
         Send a prompt to the model enriched with memory, profile, and system context.
         Returns JSON string. Returns fallback JSON on any internal errors.
