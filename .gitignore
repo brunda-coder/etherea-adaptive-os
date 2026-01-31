@@ -19,3 +19,4 @@ ghp_*
 *.bak
 *.bak_*
 safe_check_report*.txt
+.env
