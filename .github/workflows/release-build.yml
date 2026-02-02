@@ -10,74 +10,31 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build_windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
       with:
-        python-version: "3.10"
+        node-version: '18'
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --noconsole --onefile --name EthereaOS_Windows --add-data "corund/assets;corund/assets" main.py
+      run: npm install
+    - name: Build
+      run: npm run electron:build -- --publish never
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: EthereaOS-Windows
-        path: dist/EthereaOS_Windows.exe
-
-  build_linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --noconsole --onefile --name EthereaOS --add-data "corund/assets:corund/assets" main.py
-    - name: Install AppImage builder
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libfuse2
-        wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
-        chmod +x appimagetool-x86_64.AppImage
-        ./appimagetool-x86_64.AppImage --appimage-extract
-    - name: Create AppDir
-      run: |
-        mkdir -p AppDir/usr/bin
-        cp dist/EthereaOS AppDir/usr/bin/
-        cp corund/assets/avatar.png AppDir/etherea.png
-    - name: Create AppRun
-      run: |
-        echo '#!/bin/sh' > AppDir/AppRun
-        echo 'cd "$(dirname "$0")"' >> AppDir/AppRun
-        echo 'exec ./usr/bin/EthereaOS' >> AppDir/AppRun
-        chmod +x AppDir/AppRun
-    - name: Build AppImage
-      run: |
-        ./squashfs-root/AppRun --version
-        ./squashfs-root/AppRun AppDir EthereaOS_Linux.AppImage
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: EthereaOS-Linux
-        path: EthereaOS_Linux.AppImage
+        name: EthereaOS-${{ matrix.os }}
+        path: dist/*.{exe,AppImage,dmg}
 
   release:
-    needs: [build_windows, build_linux]
+    needs: [build]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -102,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/EthereaOS-Windows/EthereaOS_Windows.exe
+          asset_path: artifacts/EthereaOS-windows-latest/EthereaOS_Windows.exe
           asset_name: EthereaOS_Windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
       - name: Upload Release Asset (Linux)
@@ -112,6 +69,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/EthereaOS-Linux/EthereaOS_Linux.AppImage
+          asset_path: artifacts/EthereaOS-ubuntu-latest/EthereaOS_Linux.AppImage
           asset_name: EthereaOS_Linux.AppImage
           asset_content_type: application/x-appimage
+      - name: Upload Release Asset (macOS)
+        id: upload-release-asset-macos
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/EthereaOS-macos-latest/Etherea.dmg
+          asset_name: Etherea_macOS.dmg
+          asset_content_type: application/x-apple-diskimage

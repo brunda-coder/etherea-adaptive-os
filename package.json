@@ -2,7 +2,9 @@
   "name": "etherea-workspace",
   "version": "0.1.0",
   "private": true,
-  "main": "main.js",
+  "description": "Etherea Workspace",
+  "author": "Etherea",
+  "main": "public/electron.js",
   "homepage": ".",
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.5",
@@ -46,5 +48,22 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "build": {
+    "appId": "com.etherea.workspace",
+    "productName": "Etherea Workspace",
+    "files": [
+      "build/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
