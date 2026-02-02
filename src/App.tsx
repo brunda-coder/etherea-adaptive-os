@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TopToolbar from './components/layout/TopToolbar';
 import LeftWorkspacePanel from './components/workspace/LeftWorkspacePanel';
 import EthereaAgent from './components/agent/EthereaAgent';
@@ -6,12 +6,32 @@ import CommandBar from './components/command/CommandBar';
 import EthereaBrain from './brain';
 
 const App: React.FC = () => {
-  const [agentState, setAgentState] = useState(EthereaBrain.interpretCommand(''));
+  const [agentState, setAgentState] = useState({ mood: 'neutral', expression: 'idle' });
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
 
+  useEffect(() => {
+    if (isCommandBarOpen) {
+      setAgentState(prevState => ({ ...prevState, expression: 'listening' }));
+    } else {
+      // Only revert to idle if the agent was listening (i.e., command bar was closed without submitting)
+      setAgentState(prevState => {
+        if (prevState.expression === 'listening') {
+          return { ...prevState, expression: 'idle' };
+        }
+        return prevState;
+      });
+    }
+  }, [isCommandBarOpen]);
+
   const handleCommandSubmit = (command: string) => {
-    setAgentState(EthereaBrain.interpretCommand(command));
-    EthereaBrain.sendStateToBackend(); // Placeholder for backend communication
+    const newState = EthereaBrain.interpretCommand(command);
+    setAgentState(newState); // This will set expression to 'thinking'
+    EthereaBrain.sendStateToBackend();
+
+    // After thinking, revert to idle
+    setTimeout(() => {
+      setAgentState(prevState => ({ ...prevState, expression: 'idle' }));
+    }, 2000);
   };
 
   return (
@@ -24,8 +44,8 @@ const App: React.FC = () => {
         </div>
       </div>
       <EthereaAgent 
-        command={EthereaBrain.mood} // Pass mood as command for now
-        isCommandBarOpen={isCommandBarOpen}
+        mood={agentState.mood}
+        expression={agentState.expression}
       />
       <CommandBar 
         onCommandSubmit={handleCommandSubmit} 
