@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import EthereaBrain from '../../brain';
 
 interface CommandBarProps {
     onCommandSubmit: (command: string) => void;
@@ -13,6 +12,7 @@ const CommandBar: React.FC<CommandBarProps> = ({ onCommandSubmit, onOpenChange }
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+                event.preventDefault();
                 setIsOpen(true);
                 onOpenChange(true);
             }
@@ -31,26 +31,26 @@ const CommandBar: React.FC<CommandBarProps> = ({ onCommandSubmit, onOpenChange }
     };
 
     const handleCommandSubmit = () => {
-        const { mood, expression } = EthereaBrain.interpretCommand(command);
-        onCommandSubmit(command); // Pass raw command up
+        if (command.trim()) {
+            onCommandSubmit(command);
+        }
         setCommand('');
         setIsOpen(false);
         onOpenChange(false);
-        // The parent component will now be responsible for updating the agent
     };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20">
-            <div className="w-1/2 bg-black/30 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl p-4">
+            <div className="glass-panel w-1/2 max-w-2xl rounded-lg p-4">
                 <input
                     type="text"
                     value={command}
                     onChange={handleCommandChange}
                     onKeyDown={(e) => e.key === 'Enter' && handleCommandSubmit()}
                     placeholder="What can I help you with?"
-                    className="w-full bg-transparent border-none outline-none text-lg"
+                    className="w-full bg-transparent border-none outline-none text-lg placeholder-gray-500"
                     autoFocus
                 />
             </div>

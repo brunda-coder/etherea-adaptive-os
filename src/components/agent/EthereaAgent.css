@@ -1,138 +1,103 @@
 .etherea-agent-container {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    margin: 20px auto;
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 150px;
+  height: 200px;
+  z-index: 100;
+  transition: transform 0.5s ease;
 }
 
 .avatar-aura {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(100, 150, 255, 0.3) 0%, rgba(100, 150, 255, 0) 70%);
-    transition: all 1.5s cubic-bezier(0.075, 0.82, 0.165, 1);
-    animation: pulse 5s infinite alternate;
-}
-
-/* Mood-based Aura */
-.focus .avatar-aura {
-    background: radial-gradient(circle, rgba(120, 100, 255, 0.4) 0%, rgba(120, 100, 255, 0) 70%);
-}
-
-.flow .avatar-aura {
-    background: radial-gradient(circle, rgba(100, 255, 200, 0.4) 0%, rgba(100, 255, 200, 0) 70%);
-    animation-duration: 3s;
-}
-
-.tired .avatar-aura {
-    background: radial-gradient(circle, rgba(255, 180, 100, 0.3) 0%, rgba(255, 180, 100, 0) 70%);
-    animation-duration: 8s;
-}
-
-.soothing .avatar-aura {
-    background: radial-gradient(circle, rgba(100, 200, 255, 0.3) 0%, rgba(100, 200, 255, 0) 70%);
-    animation: gentle-pulse 10s infinite alternate;
-}
-
-@keyframes pulse {
-    from { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
-    to { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
-}
-
-@keyframes gentle-pulse {
-    from { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
-    to { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(138, 114, 194, 0.2) 0%, rgba(138, 114, 194, 0) 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  animation: aura-pulse 8s infinite alternate;
+  transition: background 1s ease;
 }
 
 .avatar-core {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 70px;
-    height: 70px;
-    transform: translate(-50%, -50%);
-    background: #0C0A1D;
-    border-radius: 50%;
-    box-shadow: 0 0 30px rgba(120, 150, 255, 0.5), inset 0 0 10px rgba(0,0,0,0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    animation: float 6s infinite ease-in-out;
-    transition: box-shadow 0.5s ease-in-out;
-}
-
-.listening .avatar-core {
-    box-shadow: 0 0 45px rgba(140, 170, 255, 0.8), inset 0 0 15px rgba(0,0,0,0.5);
-}
-
-@keyframes float {
-    0%, 100% { transform: translate(-50%, -50%) translateY(0); }
-    50% { transform: translate(-50%, -50%) translateY(-12px); }
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 100px;
+  background: #1e1e2f;
+  border-radius: 40px 40px 20px 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: breathing 4s infinite alternate;
+  border: 1px solid var(--glass-border);
 }
 
 .avatar-eyes {
-    position: relative;
-    width: 40px;
-    height: 15px;
-    transition: transform 0.5s ease-in-out;
-}
-
-.thinking .avatar-eyes {
-    animation: thinking-eyes 3s infinite ease-in-out;
-}
-
-@keyframes thinking-eyes {
-    0%, 100% { transform: translateX(0) scaleY(1); }
-    25% { transform: translateX(-4px) scaleY(0.95); }
-    75% { transform: translateX(4px) scaleY(0.95); }
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  display: flex;
+  justify-content: space-between;
 }
 
 .avatar-eye {
-    position: absolute;
-    bottom: 0;
-    width: 12px;
-    height: 2px;
-    background: rgba(200, 220, 255, 0.8);
-    border-radius: 2px;
-    box-shadow: 0 0 5px rgba(180, 200, 255, 0.8);
-    animation: blink 7s infinite;
-    transition: all 0.5s cubic-bezier(0.075, 0.82, 0.165, 1);
+  width: 12px;
+  height: 18px;
+  background: #a9b1d6;
+  border-radius: 50%;
+  animation: blink 5s infinite;
+  box-shadow: 0 0 10px rgba(169, 177, 214, 0.5);
 }
 
-.focus .avatar-eye {
-    height: 1px;
-    transform: translateY(1px) scaleX(1.1);
+/* Expressions */
+.listening .avatar-eye {
+  background-color: #82aaff; /* A brighter, more attentive blue */
 }
 
-.flow .avatar-eye {
-    height: 1.5px;
-    box-shadow: 0 0 8px rgba(100, 255, 200, 0.9);
+.thinking .avatar-eye {
+  height: 8px; /* Squinted, focused */
+  background-color: #c792ea; /* A pensive purple */
+  animation: none;
 }
 
-.tired .avatar-eye {
-    height: 1px;
-    transform: translateY(2px);
-    animation-duration: 12s; /* Slower blink */
+.idle .avatar-eye {
+  animation: blink 5s infinite, eye-dart 10s infinite alternate;
 }
 
-.soothing .avatar-eye {
-    animation-duration: 15s; /* Even slower blink */
-    box-shadow: 0 0 8px rgba(100, 200, 255, 0.9);
+/* Moods */
+.focus .avatar-aura {
+  background: radial-gradient(circle, rgba(98, 114, 164, 0.25) 0%, rgba(98, 114, 164, 0) 70%);
 }
 
-.avatar-eye.left {
-    left: 0;
-}
-
-.avatar-eye.right {
-    right: 0;
+.tired .avatar-aura {
+  background: radial-gradient(circle, rgba(192, 128, 128, 0.15) 0%, rgba(192, 128, 128, 0) 70%);
+  animation-duration: 12s;
 }
 
 @keyframes blink {
-    0%, 95%, 100% { transform: scaleY(1); }
-    97.5% { transform: scaleY(0.1); }
+  0%, 95%, 100% { transform: scaleY(1); }
+  97.5% { transform: scaleY(0.1); }
+}
+
+@keyframes eye-dart {
+  0%, 40%, 60%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+  55% { transform: translateX(-2px); }
+}
+
+@keyframes breathing {
+  from { transform: translateX(-50%) scaleY(1); }
+  to { transform: translateX(-50%) scaleY(1.02); }
+}
+
+@keyframes aura-pulse {
+  from { transform: translate(-50%, -50%) scale(0.9); }
+  to { transform: translate(-50%, -50%) scale(1.1); }
 }

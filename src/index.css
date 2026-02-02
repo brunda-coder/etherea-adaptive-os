@@ -1,13 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: #1a1b26;
-  color: #a9b1d6;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+:root {
+  font-family: 'Inter', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  --background-start: #1a1b26;
+  --background-end: #2a2c3d;
+  --primary-text: #a9b1d6;
+  --glass-bg: rgba(36, 38, 53, 0.5);
+  --glass-border: rgba(169, 177, 214, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+body {
+  background-color: var(--background-start);
+  color: var(--primary-text);
+  overflow: hidden;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--background-start) 0%, var(--background-end) 100%);
+  z-index: -2;
+}
+
+body::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><g fill-opacity="0.25"><circle fill="%231a1b26" cx="400" cy="400" r="600"/><circle fill="%232a2c3d" cx="400" cy="400" r="400"/><circle fill="%231a1b26" cx="400" cy="400" r="200"/></g></svg>');
+  background-size: cover;
+  animation: subtle-noise 15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  z-index: -1;
+  opacity: 0.1;
+}
+
+@keyframes subtle-noise {
+  0% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.1) translate(-5%, 5%); }
+  66% { transform: scale(1.05) translate(5%, -5%); }
+  100% { transform: scale(1) translate(0, 0); }
+}
+
+@layer utilities {
+  .glass-panel {
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 var(--shadow-color);
+  }
+  .main-canvas {
+    position: absolute;
+    top: 64px; /* Height of TopToolbar */
+    left: 288px; /* Width of LeftWorkspacePanel */
+    right: 0;
+    bottom: 0;
+    padding: 2rem;
+  }
 }

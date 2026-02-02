@@ -4,6 +4,7 @@ import LeftWorkspacePanel from './components/workspace/LeftWorkspacePanel';
 import EthereaAgent from './components/agent/EthereaAgent';
 import CommandBar from './components/command/CommandBar';
 import EthereaBrain from './brain';
+import './aura.css';
 
 const App: React.FC = () => {
   const [agentState, setAgentState] = useState({ mood: 'neutral', expression: 'idle' });
@@ -34,15 +35,20 @@ const App: React.FC = () => {
     }, 2000);
   };
 
+  const auraClasses = ['aura', `aura-${agentState.mood}`].join(' ');
+
   return (
-    <div className="w-full h-screen bg-gradient-to-br from-[#1a1b26] to-[#2a2c3d] text-[#a9b1d6]">
+    <div className="w-full h-screen text-[#a9b1d6]">
+      <div className={auraClasses}></div>
       <TopToolbar />
       <LeftWorkspacePanel />
-      <div className="ml-72 h-full p-8">
-        <div className="w-full h-full bg-black/10 rounded-2xl">
-          {/* Main Canvas Content Here */}
+      <main className="main-canvas">
+        <div className="text-center p-8">
+          <h1 className="text-4xl font-bold mb-4">Welcome to Etherea</h1>
+          <p className="text-lg">Your AI-powered workspace for focus and productivity.</p>
+          <p className="text-lg mt-2">Press <kbd>Ctrl+K</kbd> or <kbd>Cmd+K</kbd> to get started.</p>
         </div>
-      </div>
+      </main>
       <EthereaAgent 
         mood={agentState.mood}
         expression={agentState.expression}

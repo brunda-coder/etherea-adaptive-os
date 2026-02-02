@@ -2,7 +2,7 @@ import React from 'react';
 
 const LeftWorkspacePanel: React.FC = () => {
   return (
-    <div className="fixed top-0 left-0 h-full w-72 bg-black/10 backdrop-blur-md border-r border-white/10 p-6">
+    <div className="glass-panel fixed top-0 left-0 h-full w-72 p-6">
       <h2 className="text-xl font-bold mb-6">Etherea</h2>
       <div>
         <h3 className="text-lg font-semibold mb-4">Tasks</h3>
