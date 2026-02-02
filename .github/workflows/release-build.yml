@@ -4,6 +4,8 @@ name: Build and Release Etherea
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ "main" ]
 
@@ -23,7 +25,7 @@ jobs:
         pip install pyinstaller
     - name: Build with PyInstaller
       run: |
-        pyinstaller --noconsole --onefile --name EthereaOS_Windows --add-data "core/assets;core/assets" main.py
+        pyinstaller --noconsole --onefile --name EthereaOS_Windows --add-data "corund/assets;corund/assets" main.py
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
@@ -45,7 +47,7 @@ jobs:
         pip install pyinstaller
     - name: Build with PyInstaller
       run: |
-        pyinstaller --noconsole --onefile --name EthereaOS --add-data "core/assets:core/assets" main.py
+        pyinstaller --noconsole --onefile --name EthereaOS --add-data "corund/assets:corund/assets" main.py
     - name: Install AppImage builder
       run: |
         sudo apt-get update
@@ -57,7 +59,7 @@ jobs:
       run: |
         mkdir -p AppDir/usr/bin
         cp dist/EthereaOS AppDir/usr/bin/
-        cp core/assets/avatar.png AppDir/etherea.png
+        cp corund/assets/avatar.png AppDir/etherea.png
     - name: Create AppRun
       run: |
         echo '#!/bin/sh' > AppDir/AppRun
@@ -73,3 +75,43 @@ jobs:
       with:
         name: EthereaOS-Linux
         path: EthereaOS_Linux.AppImage
+
+  release:
+    needs: [build_windows, build_linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset (Windows)
+        id: upload-release-asset-windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/EthereaOS-Windows/EthereaOS_Windows.exe
+          asset_name: EthereaOS_Windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset (Linux)
+        id: upload-release-asset-linux
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/EthereaOS-Linux/EthereaOS_Linux.AppImage
+          asset_name: EthereaOS_Linux.AppImage
+          asset_content_type: application/x-appimage
