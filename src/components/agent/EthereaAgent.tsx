@@ -1,21 +1,23 @@
 import React from 'react';
 import './EthereaAgent.css';
 
+type AgentExpression = "neutral" | "attentive" | "focused" | "gentle_concern" | "reassurance";
+
 interface EthereaAgentProps {
-    mood: string;
-    expression: string;
+    expression: AgentExpression;
 }
 
-const EthereaAgent: React.FC<EthereaAgentProps> = ({ mood, expression }) => {
-    const containerClasses = ['etherea-agent-container', expression, mood].join(' ');
+const EthereaAgent: React.FC<EthereaAgentProps> = ({ expression }) => {
+    const containerClasses = ['etherea-agent-container', `expression-${expression}`].join(' ');
 
     return (
         <div className={containerClasses}>
-            <div className="avatar-aura"></div>
-            <div className="avatar-core">
-                <div className="avatar-eyes">
-                    <div className="avatar-eye left"></div>
-                    <div className="avatar-eye right"></div>
+            <div className="agent-body">
+                <div className="agent-glow"></div>
+                <div className="agent-core"></div>
+                <div className="agent-eyes">
+                    <div className="agent-eye left"></div>
+                    <div className="agent-eye right"></div>
                 </div>
             </div>
         </div>

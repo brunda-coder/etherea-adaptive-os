@@ -12,12 +12,17 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 
-  --background-start: #1a1b26;
-  --background-end: #2a2c3d;
-  --primary-text: #a9b1d6;
-  --glass-bg: rgba(36, 38, 53, 0.5);
-  --glass-border: rgba(169, 177, 214, 0.08);
+  --background-start: #10111a;
+  --background-end: #1c1d2b;
+  --primary-text: #c0caf5;
+  --glass-bg: rgba(28, 29, 43, 0.6);
+  --glass-border: rgba(192, 202, 245, 0.1);
   --shadow-color: rgba(0, 0, 0, 0.5);
+
+  --aura-idle-color-1: rgba(48, 52, 70, 0.3);
+  --aura-idle-color-2: rgba(30, 32, 48, 0);
+  --aura-focus-color-1: rgba(98, 114, 219, 0.35);
+  --aura-focus-color-2: rgba(30, 32, 48, 0);
 }
 
 body {
@@ -27,6 +32,7 @@ body {
   position: relative;
 }
 
+/* Background Gradient & Noise */
 body::before {
   content: "";
   position: absolute;
@@ -45,34 +51,89 @@ body::after {
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><g fill-opacity="0.25"><circle fill="%231a1b26" cx="400" cy="400" r="600"/><circle fill="%232a2c3d" cx="400" cy="400" r="400"/><circle fill="%231a1b26" cx="400" cy="400" r="200"/></g></svg>');
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><g opacity="0.1"><rect width="1024" height="1024" fill="%2310111a"/><path fill="%231c1d2b" d="M0 0h1024v1024H0z" transform="translate(128 128) rotate(45)"/></g></svg>');
   background-size: cover;
-  animation: subtle-noise 15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: subtle-noise 20s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
   z-index: -1;
-  opacity: 0.1;
+  opacity: 0.2;
 }
 
 @keyframes subtle-noise {
-  0% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.1) translate(-5%, 5%); }
-  66% { transform: scale(1.05) translate(5%, -5%); }
-  100% { transform: scale(1) translate(0, 0); }
+  0% { transform: scale(1, 1) translate(0, 0); }
+  50% { transform: scale(1.2, 1.1) translate(-2%, 3%); }
+  100% { transform: scale(1, 1) translate(0, 0); }
 }
+
+/* --- AURA SYSTEM --- */
+.aura-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 150vw;
+  height: 150vh;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 2s ease-in-out;
+}
+
+.aura-container.visible {
+  opacity: 1;
+}
+
+.aura {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--aura-idle-color-1) 0%, var(--aura-idle-color-2) 60%);
+  animation: pulse-idle 12s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  transition: background 3s ease-in-out;
+}
+
+body.focus-mode .aura {
+  background: radial-gradient(circle, var(--aura-focus-color-1) 0%, var(--aura-focus-color-2) 60%);
+  animation-name: pulse-focus;
+  animation-duration: 8s;
+}
+
+@keyframes pulse-idle {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.8; }
+}
+
+@keyframes pulse-focus {
+  0% { transform: scale(0.85); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.85); opacity: 0.9; }
+}
+
 
 @layer utilities {
   .glass-panel {
     background-color: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 8px 32px 0 var(--shadow-color);
+    box-shadow: 0 12px 48px 0 var(--shadow-color);
+    transition: background-color 0.3s, border-color 0.3s;
   }
+
+  .glass-panel:hover {
+    background-color: rgba(42, 44, 61, 0.65);
+    border-color: rgba(192, 202, 245, 0.15);
+  }
+
   .main-canvas {
     position: absolute;
-    top: 64px; /* Height of TopToolbar */
-    left: 288px; /* Width of LeftWorkspacePanel */
-    right: 0;
-    bottom: 0;
-    padding: 2rem;
+    top: 80px; /* Increased spacing */
+    left: 320px; /* Increased spacing */
+    right: 2rem;
+    bottom: 2rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
   }
 }
