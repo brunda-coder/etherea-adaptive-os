@@ -1,14 +1,20 @@
-<!DOCTYPE html>
+first commit all the changes now and push it in the force is the command is not working<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Etherea OS</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="src/aura.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <header id="top-bar">
+    <div class="aura-background">
+        <div class="aura-noise"></div>
+        <div class="aura-glow"></div>
+    </div>
+
+    <header id="top-bar" class="glass-panel">
         <div class="status-indicator">
             <span class="dot online"></span> <span id="system-status">System Normal</span>
         </div>
@@ -17,12 +23,14 @@
 
     <main id="app-container">
         
-        <div class="glass-card ai-section">
-            <div class="ai-avatar"><i class="fa-solid fa-brain"></i></div>
+        <div class="glass-panel ai-section">
+            <div class="ai-avatar">
+                <div class="avatar-placeholder"></div>
+            </div>
             <p id="ai-message">Hello, Bru. Professional Mode is active.</p>
         </div>
 
-        <div class="glass-card metrics-grid">
+        <div class="glass-panel metrics-grid">
             <div class="metric-box">
                 <i class="fa-solid fa-bolt" style="color:#ffd700"></i>
                 <span>Focus</span>
@@ -35,7 +43,7 @@
             </div>
         </div>
 
-        <div class="chat-interface">
+        <div class="chat-interface glass-panel">
             <div class="chat-history" id="chat-history">
                 </div>
             <div class="chat-input-area">
