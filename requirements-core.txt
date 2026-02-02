@@ -6,6 +6,6 @@ flask
 # --- Etherea Premium Runtime ---
 openai>=1.0.0
 pyttsx3
-SpeechRecognition
+speech_recognition
 pygame
 edge-tts
