@@ -35,3 +35,6 @@ __pycache__/
 .idx/
 .nix/
 .cache/
+# IDE / Git error logs
+git-error-*
+*.logs
