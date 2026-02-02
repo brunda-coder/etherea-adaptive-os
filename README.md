@@ -36,38 +36,6 @@ This release is the **report-aligned demo build** focused on:
 - Some docs/specs describe a broader roadmap and UI spec ideas. These are clearly marked as conceptual/spec and are not guaranteed to be fully implemented.
 
 ---
-=======
-
-## ✨ What’s New (v3.0.999)
-
-This release is the **report-aligned demo build** focused on:
-- **Presenter Mode** + gentle “alive” ambient motion
-- **Co-present script** (Etherea speaks short, demo-safe lines alongside the human presenter)
-- **Demo-friendly expressives**: `dance`, `hum`, `surprise`
-- **FocusGuardian supervisor** (nudges during strict focus sessions, safe + non-invasive)
-- **Release-only CI** (build/tests run only when a GitHub Release is published — no spammy Actions)
-
----
-
-## Status (Reality Check)
-
-**Working**
-- Desktop PySide6 UI (`core/ui/main_window_v2.py`) with **Heroine avatar + console + command palette**.
-- Presenter demo commands: `present on/off`, `co-present`, `next`, `skip`, `dance`, `hum`, `surprise`.
-- Workspace command routing + session memory logic (CLI + UI-safe).
-- Background audio engine + voice output adapters (optional dependencies).
-
-**Partially working / optional**
-- HID sensors and EI signal updates (OS-dependent; requires `pynput`).
-- Voice input (SpeechRecognition + microphone; may require system audio deps).
-- Flask mock web server (`server.py`) with simulated EI/status data.
-
-**Planned / conceptual (docs only)**
-- Some docs/specs describe a broader roadmap and UI spec ideas. These are clearly marked as conceptual/spec and are not guaranteed to be fully implemented.
-
----
-
->>>>>>> 0386245 (ADDED NEW README, PYTEST, AND CONFTEST)
 ## Install & Run
 
 ### Windows (Release ZIP)
@@ -80,21 +48,29 @@ This release is the **report-aligned demo build** focused on:
 ### Linux (AppImage)
 1. Click **Linux Download** at the top.
 2. Make it executable:
+    ```
     chmod +x EthereaOS_Linux.AppImage
+    ```
 3. Run:
+    ```
     ./EthereaOS_Linux.AppImage
+    ```
 
 ### Local Python (Dev)
-    python -m venv .venv
-    source .venv/bin/activate  # Windows: .venv\Scripts\activate
-    pip install -r requirements.txt
-    python main.py
+```
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
 
 Optional entrypoints:
-    python core/ui/main_window_v2.py   # main UI (hero demo)
-    python etherea_launcher.py         # HiDPI-safe desktop launcher
-    python etherea_workspace_cli.py    # CLI command routing
-    python server.py                   # Flask mock web UI
+```
+python core/ui/main_window_v2.py   # main UI (hero demo)
+python etherea_launcher.py         # HiDPI-safe desktop launcher
+python etherea_workspace_cli.py    # CLI command routing
+python server.py                   # Flask mock web UI
+```
 
 ---
 
@@ -136,7 +112,7 @@ Command palette / input supports:
 ## Architecture (Mermaid)
 
 ### System Overview
-~~~mermaid
+```mermaid
 flowchart TD
   U[User] --> UI[Desktop UI Layer]
   UI --> WC[WorkspaceController]
@@ -152,11 +128,11 @@ flowchart TD
 
   UI --> Audio[Background Audio Engine]
   UI --> Voice[Avatar Voice Output]
-~~~
+```
 
 
 ### Workspace Command Flow
-~~~mermaid
+```mermaid
 sequenceDiagram
   participant U as User
   participant CP as Command Palette / Command Input
@@ -168,23 +144,7 @@ sequenceDiagram
   WC->>WM: apply_mode("coding")
   WM-->>WC: ok + state
   WC-->>CP: output/log
-~~~
-<<<<<<< HEAD
-## Release & CI (No Spam Actions)
-
-Workflows run **only** when a GitHub Release is **published**:
-- `.github/workflows/release-tests.yml` (pytest on release)
-- `.github/workflows/release-build.yml` (Windows build on release)
-
-Important: The download buttons above expect these exact asset names:
-- `EthereaOS_Windows.zip`
-- `EthereaOS_Linux.AppImage`
-
----
-=======
-
----
-
+```
 ## Release & CI (No Spam Actions)
 
 Workflows run **only** when a GitHub Release is **published**:
@@ -197,10 +157,11 @@ Important: The download buttons above expect these exact asset names:
 
 ---
 
->>>>>>> 0386245 (ADDED NEW README, PYTEST, AND CONFTEST)
+---
+
 ## Full Repository Tree (Big + Exact)
 
-~~~text
+```text
 etherea-tutorial/
 ├── .github/
 │   └── workflows/
@@ -390,85 +351,52 @@ etherea-tutorial/
     ├── .etherea_last_session.json
     ├── doc_142113.txt
     └── doc_142114.txt
-~~~
+```
 ---
 
 ## Diagnostics (Termux / CLI Safe Mode)
 
 Safe health report:
-<<<<<<< HEAD
-  ```
-    python etherea_safe_check.py | tee safe_check_report.txt
-  ```
+```
+python etherea_safe_check.py | tee safe_check_report.txt
+```
 Compile check:
-   ```
-    python -m compileall core | tee compile_report.txt
-  ```
+```
+python -m compileall core | tee compile_report.txt
+```
 Minimal smoke harness (CLI-safe):
-   ```
-    python -m compileall core
-    python etherea_safe_check.py
-    python etherea_workspace_cli.py
-  ```
-=======
-    python etherea_safe_check.py | tee safe_check_report.txt
-
-Compile check:
-    python -m compileall core | tee compile_report.txt
-
-Minimal smoke harness (CLI-safe):
-    python -m compileall core
-    python etherea_safe_check.py
-    python etherea_workspace_cli.py
-
->>>>>>> 0386245 (ADDED NEW README, PYTEST, AND CONFTEST)
+```
+python -m compileall core
+python etherea_safe_check.py
+python etherea_workspace_cli.py
+```
 ---
 
 ## Contributing (From Repository Root)
 
 1. Fork the repo and clone:
-<<<<<<< HEAD
 ```
-   git clone https://github.com/<your-username>/etherea-tutorial.git
-    cd etherea-tutorial
+git clone https://github.com/<your-username>/etherea-tutorial.git
+cd etherea-tutorial
 ```
-3. Create a branch:
+2. Create a branch:
 ```
-   git checkout -b feature/your-feature-name
+git checkout -b feature/your-feature-name
 ```
 4. Run checks:
 ```
-   python -m compileall core
-    python etherea_safe_check.py
+python -m compileall core
+python etherea_safe_check.py
 ```
 5. Commit:
-   ```
-   git add .
-    git commit -m "Add: <short description>"
-   ```
+```
+git add .
+git commit -m "Add: <short description>"
+```
 6. Push + PR:
-   ```
-    git push origin feature/your-feature-name
-   ```
-=======
-    git clone https://github.com/<your-username>/etherea-tutorial.git
-    cd etherea-tutorial
-
-2. Create a branch:
-    git checkout -b feature/your-feature-name
-
-3. Run checks:
-    python -m compileall core
-    python etherea_safe_check.py
-
-4. Commit:
-    git add .
-    git commit -m "Add: <short description>"
-
-5. Push + PR:
-    git push origin feature/your-feature-name
-
->>>>>>> 0386245 (ADDED NEW README, PYTEST, AND CONFTEST)
+```
+git push origin feature/your-feature-name
+```
 ---
 
 ## Contributors
@@ -498,9 +426,4 @@ Minimal smoke harness (CLI-safe):
 | AYATHUNNISA | 4JN25CS025 |
 | Chinmai HA | 4JN25CS051 |
 | Arshiya Khanum | 4JN25CS022 |
-<<<<<<< HEAD
-| Azra Rahman | 4JN25CS026
-=======
 | Azra Rahman | 4JN25CS026 |
-
->>>>>>> 0386245 (ADDED NEW README, PYTEST, AND CONFTEST)
