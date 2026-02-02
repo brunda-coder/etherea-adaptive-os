@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
-from typing import Optional
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication
@@ -13,8 +12,7 @@ from corund.ui.main_window_v2 import EthereaMainWindowV2
 from corund.signals import signals
 if TYPE_CHECKING:
     from corund.voice_engine import VoiceEngine
-from corund.voice_engine import get_voice_engine, VoiceEngine
-from corund.signals import signals
+from corund.voice_engine import get_voice_engine
 
 
 class AppController(QObject):
@@ -24,7 +22,6 @@ class AppController(QObject):
         self.window = EthereaMainWindowV2()
         self.ei_engine = EIEngine()
         self.voice_engine: Optional["VoiceEngine"] = None
-        self.voice_engine: Optional[VoiceEngine] = None
         self._log_path = Path(user_data_dir()) / "etherea.log"
 
         self._connect_signals()
@@ -52,7 +49,6 @@ class AppController(QObject):
         self._log("✅ EI Engine started.")
 
         try:
-            from corund.voice_engine import get_voice_engine
             self.voice_engine = get_voice_engine()
             if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
                 self.voice_engine.start_command_loop()

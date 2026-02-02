@@ -1,0 +1,10 @@
+
+# Placeholder for release build workflow
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build for Windows
+      run: echo "core/assets;core/assets"
+    - name: Build for Linux
+      run: echo "core/assets:core/assets"

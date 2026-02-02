@@ -18,6 +18,12 @@ _bootlog(f"cwd={os.getcwd()}")
 import sys
 import os
 
+try:
+    from dotenv import load_dotenv
+except Exception:
+    def load_dotenv(*a, **k):
+        return None  # optional on Termux/CI
+
 # ---------------------------------------------------------------------
 # Etherea Launcher (HiDPI-safe) ✅
 # Fixes tiny UI on HiDPI displays (Windows + Linux AppImage builds)
@@ -51,10 +57,10 @@ from PySide6.QtWidgets import QApplication
 # Ensure project root is in path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from corund.ui.main_window_v2 import EthereaMainWindowV2
+from corund.app_controller import AppController
 
-
-if __name__ == "__main__":
+def main() -> int:
+    load_dotenv()
     # Keep scaling crisp & consistent (prevents weird rounding)
     try:
         QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
@@ -64,14 +70,22 @@ if __name__ == "__main__":
         pass
 
     app = QApplication(sys.argv)
-    window = EthereaMainWindowV2()
+    controller = AppController(app)
 
     # Optional: make the default window feel more "app-like" (not tiny)
     try:
-        window.resize(1280, 820)
-        window.setMinimumSize(1100, 720)
+        controller.window.resize(1280, 820)
+        controller.window.setMinimumSize(1100, 720)
     except Exception:
         pass
 
-    window.show()
-    sys.exit(app.exec())
+    controller.window.setWindowTitle("Etherea – The Living Adaptive OS")
+    controller.window.show()
+    controller.start()
+
+    app.aboutToQuit.connect(controller.shutdown)
+    return app.exec()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
