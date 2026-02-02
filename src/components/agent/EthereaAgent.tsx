@@ -7,7 +7,7 @@ interface EthereaAgentProps {
 }
 
 const EthereaAgent: React.FC<EthereaAgentProps> = ({ command, isCommandBarOpen }) => {
-    const [mood, setMood] = useState('neutral'); // neutral, focus, tired
+    const [mood, setMood] = useState('neutral'); // neutral, focus, tired, flow, soothing
     const [expression, setExpression] = useState('idle'); // idle, listening, thinking
 
     useEffect(() => {
@@ -25,26 +25,30 @@ const EthereaAgent: React.FC<EthereaAgentProps> = ({ command, isCommandBarOpen }
             if (!command) return;
 
             setExpression('thinking');
-            setTimeout(() => setExpression('idle'), 2000); // Revert to idle after 2s
+            setTimeout(() => setExpression('idle'), 2000);
 
-            if (command.includes('focus')) {
+            if (command.includes('focus') || command.includes('coding') || command.includes('builder')) {
                 setMood('focus');
+            } else if (command.includes('deep work') || command.includes('flow')) {
+                setMood('flow');
             } else if (command.includes('tired') || command.includes('sleep')) {
                 setMood('tired');
+            } else if (command.includes('calm') || command.includes('rest') || command.includes('heal')) {
+                setMood('soothing');
             } else if (command.includes('reset') || command.includes('neutral')) {
                 setMood('neutral');
-            } 
+            }
         };
 
         handleCommand();
     }, [command]);
 
-    const containerClasses = ['etherea-agent-container', expression].join(' ');
-    const auraClasses = ['avatar-aura', mood].join(' ');
+    // Apply mood and expression to the container for cascading styles
+    const containerClasses = ['etherea-agent-container', expression, mood].join(' ');
 
     return (
         <div className={containerClasses}>
-            <div className={auraClasses}></div>
+            <div className="avatar-aura"></div>
             <div className="avatar-core">
                 <div className="avatar-eyes">
                     <div className="avatar-eye left"></div>

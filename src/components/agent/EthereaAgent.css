@@ -1,4 +1,3 @@
-
 .etherea-agent-container {
     position: relative;
     width: 120px;
@@ -19,24 +18,34 @@
     animation: pulse 5s infinite alternate;
 }
 
-.avatar-aura.focus {
+/* Mood-based Aura */
+.focus .avatar-aura {
     background: radial-gradient(circle, rgba(120, 100, 255, 0.4) 0%, rgba(120, 100, 255, 0) 70%);
 }
 
-.avatar-aura.tired {
+.flow .avatar-aura {
+    background: radial-gradient(circle, rgba(100, 255, 200, 0.4) 0%, rgba(100, 255, 200, 0) 70%);
+    animation-duration: 3s;
+}
+
+.tired .avatar-aura {
     background: radial-gradient(circle, rgba(255, 180, 100, 0.3) 0%, rgba(255, 180, 100, 0) 70%);
     animation-duration: 8s;
 }
 
+.soothing .avatar-aura {
+    background: radial-gradient(circle, rgba(100, 200, 255, 0.3) 0%, rgba(100, 200, 255, 0) 70%);
+    animation: gentle-pulse 10s infinite alternate;
+}
+
 @keyframes pulse {
-    from {
-        transform: translate(-50%, -50%) scale(1);
-        opacity: 0.8;
-    }
-    to {
-        transform: translate(-50%, -50%) scale(1.4);
-        opacity: 1;
-    }
+    from { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    to { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+}
+
+@keyframes gentle-pulse {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+    to { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
 }
 
 .avatar-core {
@@ -61,12 +70,8 @@
 }
 
 @keyframes float {
-    0%, 100% {
-        transform: translate(-50%, -50%) translateY(0);
-    }
-    50% {
-        transform: translate(-50%, -50%) translateY(-12px);
-    }
+    0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+    50% { transform: translate(-50%, -50%) translateY(-12px); }
 }
 
 .avatar-eyes {
@@ -77,13 +82,13 @@
 }
 
 .thinking .avatar-eyes {
-    animation: thinking 3s infinite ease-in-out;
+    animation: thinking-eyes 3s infinite ease-in-out;
 }
 
-@keyframes thinking {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-3px); }
-    75% { transform: translateX(3px); }
+@keyframes thinking-eyes {
+    0%, 100% { transform: translateX(0) scaleY(1); }
+    25% { transform: translateX(-4px) scaleY(0.95); }
+    75% { transform: translateX(4px) scaleY(0.95); }
 }
 
 .avatar-eye {
@@ -100,7 +105,12 @@
 
 .focus .avatar-eye {
     height: 1px;
-    transform: translateY(1px);
+    transform: translateY(1px) scaleX(1.1);
+}
+
+.flow .avatar-eye {
+    height: 1.5px;
+    box-shadow: 0 0 8px rgba(100, 255, 200, 0.9);
 }
 
 .tired .avatar-eye {
@@ -109,6 +119,10 @@
     animation-duration: 12s; /* Slower blink */
 }
 
+.soothing .avatar-eye {
+    animation-duration: 15s; /* Even slower blink */
+    box-shadow: 0 0 8px rgba(100, 200, 255, 0.9);
+}
 
 .avatar-eye.left {
     left: 0;
@@ -119,10 +133,6 @@
 }
 
 @keyframes blink {
-    0%, 95%, 100% {
-        transform: scaleY(1);
-    }
-    97.5% {
-        transform: scaleY(0.1);
-    }
+    0%, 95%, 100% { transform: scaleY(1); }
+    97.5% { transform: scaleY(0.1); }
 }
