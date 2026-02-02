@@ -1,0 +1,17 @@
+{
+  "name": "etherea",
+  "version": "1.0.0",
+  "description": "Etherea - The Living Adaptive OS",
+  "main": "main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "echo \"Build script not yet implemented\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.2.2"
+  }
+}
