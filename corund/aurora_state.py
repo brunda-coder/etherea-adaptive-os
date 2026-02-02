@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -105,7 +105,6 @@ MODE_RULES: Dict[str, ModeRule] = {
     ),
 }
 
-
 def _time_of_day(now: datetime) -> str:
     hour = now.hour
     if 5 <= hour < 12:
@@ -116,14 +115,12 @@ def _time_of_day(now: datetime) -> str:
         return "evening"
     return "night"
 
-
 def _attention_level(focus: float, stress: float, energy: float) -> str:
     if stress >= 0.7 or energy <= 0.35:
         return "low"
     if focus >= 0.7 and energy >= 0.6 and stress <= 0.5:
         return "high"
     return "med"
-
 
 def _apply_mode_effective(runtime: AuroraRuntimeState) -> str:
     if runtime.error_active:
@@ -134,18 +131,17 @@ def _apply_mode_effective(runtime: AuroraRuntimeState) -> str:
         return runtime.current_mode
     return "idle"
 
-
 def _filter_actions(
     registry: ActionRegistry,
     runtime: AuroraRuntimeState,
     mode: str,
 ) -> List[ActionItem]:
-    """
+    "'''
     Return mode-appropriate actions, filtered for session/DND rules.
 
     This function must be extremely defensive because ActionRegistry can be
     partially loaded in sparse / packaging contexts.
-    """
+    '''
     try:
         registry_actions = registry.list_actions()
     except RecursionError:
@@ -180,14 +176,13 @@ def _filter_actions(
     return [
         ActionItem(
             action_id=str(getattr(action, "action_id", "")),
-            label=str(getattr(action, "label", getattr(action, "action_id", ""))),
+            label=str(getattr(action, "label", getattr(action, "action_id", ""))) ,
             intent=str(getattr(action, "intent", "")),
             enabled=not (runtime.dnd_active and getattr(action, "dnd_blocked", False)),
         )
         for action in actions
         if getattr(action, "action_id", None)
     ]
-
 
 def compute_canvas_state(
     runtime: AuroraRuntimeState,

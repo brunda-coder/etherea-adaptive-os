@@ -1,20 +1,30 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass, asdict, field
-from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 import json
 
+# As per the blueprint, these are the only valid workspace types.
+WorkspaceType = Literal["Study", "Build", "Research", "Calm", "Deep Work"]
+
+CORE_WORKSPACES = {
+    "Study": "A quiet space for deep learning and concentration.",
+    "Build": "A dynamic environment for coding, creating, and compiling.",
+    "Research": "A space for browsing, collecting, and analyzing information.",
+    "Calm": "A minimal, serene space for relaxation and mindfulness.",
+    "Deep Work": "An immersive, distraction-free environment for intense focus."
+}
 
 @dataclass
 class WorkspaceRecord:
     workspace_id: str
-    name: str
-    workspace_type: str
+    name: str # This is now one of the CORE_WORKSPACES keys
+    workspace_type: WorkspaceType
     path: str
     created_at: str
+    description: str
     last_opened: Optional[str] = None
     last_saved: Optional[str] = None
     session_data: Dict[str, object] = field(default_factory=dict)
@@ -27,6 +37,7 @@ class WorkspaceRegistry:
         self.state_path = self.root / ".etherea_workspaces.json"
         self._state: Dict[str, object] = {"workspaces": [], "current_id": None}
         self._load()
+        self._initialize_core_workspaces()
 
     def _load(self) -> None:
         if self.state_path.exists():
@@ -37,112 +48,76 @@ class WorkspaceRegistry:
 
     def _now(self) -> str:
         return datetime.utcnow().isoformat()
-
-    def list_workspaces(self) -> List[WorkspaceRecord]:
-        records: List[WorkspaceRecord] = []
-        for item in self._state.get("workspaces", []):
-            payload = {
-                "workspace_id": item.get("workspace_id"),
-                "name": item.get("name"),
-                "workspace_type": item.get("workspace_type", "general"),
-                "path": item.get("path"),
-                "created_at": item.get("created_at"),
-                "last_opened": item.get("last_opened"),
-                "last_saved": item.get("last_saved"),
-                "session_data": item.get("session_data") or {},
-            }
-            if payload["workspace_id"] and payload["name"]:
-                records.append(WorkspaceRecord(**payload))
-        return records
-        return [WorkspaceRecord(**item) for item in self._state.get("workspaces", [])]
-
-    def get_current(self) -> Optional[WorkspaceRecord]:
-        current_id = self._state.get("current_id")
-        if not current_id:
-            return None
-        return self.get_workspace(str(current_id))
-
-    def get_workspace(self, workspace_id: str) -> Optional[WorkspaceRecord]:
-        for item in self._state.get("workspaces", []):
-            if item.get("workspace_id") == workspace_id:
-                return WorkspaceRecord(**item)
-        return None
-
-    def create_workspace(self, name: Optional[str] = None) -> WorkspaceRecord:
-        existing = self.list_workspaces()
-        next_index = len(existing) + 1
-        workspace_id = f"ws_{int(datetime.utcnow().timestamp())}_{next_index}"
-        workspace_name = name or f"Workspace {next_index}"
+    
+    def _initialize_core_workspaces(self):
+        """Ensures that the five core workspaces exist in the registry."""
+        existing_workspaces = {ws.name: ws for ws in self.list_workspaces()}
+        needs_save = False
+        for name, description in CORE_WORKSPACES.items():
+            if name not in existing_workspaces:
+                self._create_workspace_record(name, description)
+                needs_save = True
+        if needs_save:
+            self._save()
+    
+    def _create_workspace_record(self, name: str, description: str) -> WorkspaceRecord:
+        """Internal helper to create a workspace record without saving immediately."""
+        workspace_id = f"ws_{name.lower().replace(' ', '_')}"
         workspace_path = self.root / workspace_id
         workspace_path.mkdir(parents=True, exist_ok=True)
         record = WorkspaceRecord(
             workspace_id=workspace_id,
-            name=workspace_name,
-            workspace_type="general",
+            name=name,
+            workspace_type=name, # The type is the name
             path=str(workspace_path),
             created_at=self._now(),
-            session_data={},
+            description=description
         )
-        self._state["workspaces"] = [asdict(ws) for ws in existing] + [asdict(record)]
-        self._state["current_id"] = workspace_id
-        self._save()
+        workspaces = self.list_workspaces()
+        self._state["workspaces"] = [asdict(ws) for ws in workspaces] + [asdict(record)]
         return record
 
-    def open_workspace(self, workspace_id: str) -> Optional[WorkspaceRecord]:
-        workspaces = self.list_workspaces()
-        updated: List[dict] = []
-        selected: Optional[WorkspaceRecord] = None
-        for ws in workspaces:
+    def list_workspaces(self) -> List[WorkspaceRecord]:
+        """Lists all available workspaces, which are the five core ones."""
+        records: List[WorkspaceRecord] = []
+        for item in self._state.get("workspaces", []):
+            # Basic validation
+            if item.get("workspace_id") and item.get("name") in CORE_WORKSPACES:
+                records.append(WorkspaceRecord(**item))
+        return records
+
+    def get_current(self) -> Optional[WorkspaceRecord]:
+        current_id = self._state.get("current_id")
+        if not current_id:
+            # Default to the 'Calm' workspace if none is selected
+            calm_ws = self.get_workspace_by_name("Calm")
+            if calm_ws:
+                self._state["current_id"] = calm_ws.workspace_id
+                return calm_ws
+            return None
+        return self.get_workspace(str(current_id))
+
+    def get_workspace(self, workspace_id: str) -> Optional[WorkspaceRecord]:
+        for ws in self.list_workspaces():
             if ws.workspace_id == workspace_id:
-                ws.last_opened = self._now()
-                selected = ws
-            updated.append(asdict(ws))
-        if selected:
-            self._state["workspaces"] = updated
-            self._state["current_id"] = workspace_id
+                return ws
+        return None
+    
+    def get_workspace_by_name(self, name: WorkspaceType) -> Optional[WorkspaceRecord]:
+        for ws in self.list_workspaces():
+            if ws.name == name:
+                return ws
+        return None
+
+    def switch_workspace(self, workspace_name: WorkspaceType) -> Optional[WorkspaceRecord]:
+        """Switches the current workspace to the one specified by name."""
+        ws_to_activate = self.get_workspace_by_name(workspace_name)
+        if ws_to_activate:
+            self._state["current_id"] = ws_to_activate.workspace_id
+            ws_to_activate.last_opened = self._now()
+            # Update the record in the state
+            all_ws = [asdict(w) for w in self.list_workspaces() if w.workspace_id != ws_to_activate.workspace_id] + [asdict(ws_to_activate)]
+            self._state["workspaces"] = all_ws
             self._save()
-        return selected
-
-    def resume_last(self) -> Optional[WorkspaceRecord]:
-        current = self.get_current()
-        if current:
-            return current
-        workspaces = self.list_workspaces()
-        if not workspaces:
-            return None
-        latest = sorted(
-            workspaces,
-            key=lambda ws: ws.last_opened or ws.last_saved or ws.created_at,
-            reverse=True,
-        )[0]
-        return self.open_workspace(latest.workspace_id)
-
-    def save_snapshot(self, payload: Dict[str, object]) -> Optional[Path]:
-        current = self.get_current()
-        if not current:
-            return None
-        snapshot_path = Path(current.path) / "snapshot.json"
-        snapshot = {
-            "workspace_id": current.workspace_id,
-            "name": current.name,
-            "saved_at": self._now(),
-            "payload": payload,
-        }
-        snapshot_path.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
-        self._touch_saved(current.workspace_id, snapshot["saved_at"], payload)
-        return snapshot_path
-
-    def _touch_saved(self, workspace_id: str, timestamp: str, payload: Dict[str, object]) -> None:
-        self._touch_saved(current.workspace_id, snapshot["saved_at"])
-        return snapshot_path
-
-    def _touch_saved(self, workspace_id: str, timestamp: str) -> None:
-        workspaces = self.list_workspaces()
-        updated: List[dict] = []
-        for ws in workspaces:
-            if ws.workspace_id == workspace_id:
-                ws.last_saved = timestamp
-                ws.session_data = payload
-            updated.append(asdict(ws))
-        self._state["workspaces"] = updated
-        self._save()
+            return ws_to_activate
+        return None

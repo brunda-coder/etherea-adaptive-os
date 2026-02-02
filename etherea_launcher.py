@@ -80,7 +80,6 @@ def main() -> int:
         pass
 
     controller.window.setWindowTitle("Etherea – The Living Adaptive OS")
-    controller.window.show()
     controller.start()
 
     app.aboutToQuit.connect(controller.shutdown)
