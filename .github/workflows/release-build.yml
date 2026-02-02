@@ -1,10 +1,75 @@
 
-# Placeholder for release build workflow
+name: Build and Release Etherea
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
 jobs:
-  build:
+  build_windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --noconsole --onefile --name EthereaOS_Windows --add-data "core/assets;core/assets" main.py
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: EthereaOS-Windows
+        path: dist/EthereaOS_Windows.exe
+
+  build_linux:
     runs-on: ubuntu-latest
     steps:
-    - name: Build for Windows
-      run: echo "core/assets;core/assets"
-    - name: Build for Linux
-      run: echo "core/assets:core/assets"
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --noconsole --onefile --name EthereaOS --add-data "core/assets:core/assets" main.py
+    - name: Install AppImage builder
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfuse2
+        wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+        ./appimagetool-x86_64.AppImage --appimage-extract
+    - name: Create AppDir
+      run: |
+        mkdir -p AppDir/usr/bin
+        cp dist/EthereaOS AppDir/usr/bin/
+        cp core/assets/avatar.png AppDir/etherea.png
+    - name: Create AppRun
+      run: |
+        echo '#!/bin/sh' > AppDir/AppRun
+        echo 'cd "$(dirname "$0")"' >> AppDir/AppRun
+        echo 'exec ./usr/bin/EthereaOS' >> AppDir/AppRun
+        chmod +x AppDir/AppRun
+    - name: Build AppImage
+      run: |
+        ./squashfs-root/AppRun --version
+        ./squashfs-root/AppRun AppDir EthereaOS_Linux.AppImage
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: EthereaOS-Linux
+        path: EthereaOS_Linux.AppImage
