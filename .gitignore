@@ -20,3 +20,18 @@ ghp_*
 *.bak_*
 safe_check_report*.txt
 .env
+# Node
+node_modules/
+
+# Builds
+dist/
+build/
+
+# Python
+.venv/
+__pycache__/
+
+# Cloud / IDX / Nix
+.idx/
+.nix/
+.cache/
