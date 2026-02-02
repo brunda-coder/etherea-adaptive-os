@@ -1,1 +1,21 @@
+# Build artifacts
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.spec
+
+# Archives
+*.zip
+
+# Logs
+logs/
+
+# Data
+data/etherea.db
+
+# IDE
+.idx/
 node_modules
