@@ -1,43 +1,58 @@
 import React, { useState, useEffect } from 'react';
+import './EthereaAgent.css';
 
-const EthereaAgent: React.FC = () => {
-  const [message, setMessage] = useState<string | null>(null);
+interface EthereaAgentProps {
+    command: string;
+    isCommandBarOpen: boolean;
+}
 
-  const showMessage = (msg: string) => {
-    setMessage(msg);
-    setTimeout(() => {
-      setMessage(null);
-    }, 3000);
-  };
+const EthereaAgent: React.FC<EthereaAgentProps> = ({ command, isCommandBarOpen }) => {
+    const [mood, setMood] = useState('neutral'); // neutral, focus, tired
+    const [expression, setExpression] = useState('idle'); // idle, listening, thinking
 
-  useEffect(() => {
-    // Mock responses
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey) {
-        if (event.key === 'k') {
-          showMessage('Command palette opened');
+    useEffect(() => {
+        if (isCommandBarOpen) {
+            setExpression('listening');
+        } else if (expression === 'listening') {
+            // If the command bar was just closed, go into thinking mode briefly
+            setExpression('thinking');
+            setTimeout(() => setExpression('idle'), 2000); // Revert to idle after 2s
         }
-      }
-    };
+    }, [isCommandBarOpen]);
 
-    window.addEventListener('keydown', handleKeyDown);
+    useEffect(() => {
+        const handleCommand = () => {
+            if (!command) return;
 
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+            setExpression('thinking');
+            setTimeout(() => setExpression('idle'), 2000); // Revert to idle after 2s
 
-  return (
-    <div className="fixed bottom-10 right-10 flex items-center space-x-4">
-      {message && (
-        <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-sm">
-          {message}
+            if (command.includes('focus')) {
+                setMood('focus');
+            } else if (command.includes('tired') || command.includes('sleep')) {
+                setMood('tired');
+            } else if (command.includes('reset') || command.includes('neutral')) {
+                setMood('neutral');
+            } 
+        };
+
+        handleCommand();
+    }, [command]);
+
+    const containerClasses = ['etherea-agent-container', expression].join(' ');
+    const auraClasses = ['avatar-aura', mood].join(' ');
+
+    return (
+        <div className={containerClasses}>
+            <div className={auraClasses}></div>
+            <div className="avatar-core">
+                <div className="avatar-eyes">
+                    <div className="avatar-eye left"></div>
+                    <div className="avatar-eye right"></div>
+                </div>
+            </div>
         </div>
-      )}
-      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full shadow-lg animate-pulse">
-      </div>
-    </div>
-  );
+    );
 };
 
 export default EthereaAgent;
