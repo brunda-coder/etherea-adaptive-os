@@ -1,7 +1,7 @@
 PySide6
 pygame
 pyttsx3
-speech_recognition
+SpeechRecognition
 openai
 requests
 numpy
