@@ -47,9 +47,24 @@ class EthereaBrain {
             }
         };
 
-        console.log('Sending state to backend:', state);
-        // In a real implementation, this would be a fetch call to a Python server
-        // e.g., await fetch('/api/update_persona', { method: 'POST', body: JSON.stringify(state) });
+        try {
+            const response = await fetch('http://localhost:5001/api/update_persona', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(state)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Backend response:', data);
+            } else {
+                console.error('Backend request failed:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('Error sending state to backend:', error);
+        }
     }
 }
 
