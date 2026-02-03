@@ -3,9 +3,10 @@ import TopToolbar from './components/layout/TopToolbar';
 import LeftWorkspacePanel from './components/workspace/LeftWorkspacePanel';
 import EthereaAgent from './components/agent/EthereaAgent';
 import CommandBar from './components/command/CommandBar';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // --- Local AI Brain & State ---
-type AgentExpression = "neutral" | "attentive" | "focused" | "gentle_concern" | "reassurance";
+type AgentExpression = "neutral" | "attentive" | "focused" | "gentle_concern" | "reassurance" | "thinking";
 interface AgentState {
   expression: AgentExpression;
   response: string | null;
@@ -17,8 +18,17 @@ const App: React.FC = () => {
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   const [auraVisible, setAuraVisible] = useState(false);
 
-  // --- LOCAL "AI" BRAIN ---
-  const handleCommand = useCallback((command: string) => {
+  const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY!);
+
+  async function callGemini(prompt: string) {
+    const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  }
+
+  // --- LOCAL \"AI\" BRAIN ---
+  const handleCommand = useCallback(async (command: string) => {
     const cleanedCommand = command.toLowerCase().trim();
     let nextExpression: AgentExpression = 'reassurance';
     let nextResponse: string | null = null;
@@ -44,8 +54,9 @@ const App: React.FC = () => {
          nextResponse = "The workspace is already open, I am here to help you.";
          break;
       default:
+        setAgentState({ expression: 'thinking', response: null });
+        nextResponse = await callGemini(command);
         nextExpression = 'neutral';
-        nextResponse = "I'm not sure how to respond to that, but I'm here to help.";
         break;
     }
     
