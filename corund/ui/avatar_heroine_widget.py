@@ -12,29 +12,27 @@ from PySide6.QtWidgets import QWidget
 
 # Optional voice engine hookup (for mouth/viseme)
 try:
-    from corund.voice_engine import get_voice_engine  # type: ignore
+    from corund.voice_engine import g_voice_engine
 except Exception:
-    get_voice_engine = None
+    g_voice_engine = None
 
 
-def _clamp(x: float, lo: float, hi: float) -> float:
-    try:
-        return max(lo, min(hi, float(x)))
-    except Exception:
-        return lo
+def _clamp(x: float, a: float, b: float) -> float:
+    return a if x < a else (b if x > b else x)
 
 
 @dataclass
 class _Anim:
-    """Small helper to ease values smoothly."""
+    """Simple critically damped animator."""
     v: float
     target: float
+    vel: float = 0.0
 
-    def step(self, dt: float, speed: float) -> float:
-        # critically damped-ish lerp
-        a = 1.0 - math.exp(-max(0.0, speed) * max(0.0, dt))
-        self.v = self.v + (self.target - self.v) * a
-        return self.v
+    def step(self, dt: float, stiffness: float = 18.0, damping: float = 0.85) -> None:
+        err = self.target - self.v
+        self.vel += err * stiffness * dt
+        self.vel *= damping
+        self.v += self.vel * dt
 
 
 class AvatarHeroineWidget(QWidget):
@@ -110,121 +108,111 @@ class AvatarHeroineWidget(QWidget):
         self.update()
 
     def set_accent_colors(self, a: Tuple[int, int, int], b: Tuple[int, int, int]) -> None:
-        self._accent_a = tuple(int(x) for x in a)
-        self._accent_b = tuple(int(x) for x in b)
+        self._accent_a = a
+        self._accent_b = b
         self.update()
 
-    def set_thinking(self, on: bool) -> None:
-        self.thinking = bool(on)
-        # subtle acknowledge
-        self.acknowledge()
+    def set_ei_state(self, focus: float, stress: float, energy: float, curiosity: Optional[float] = None) -> None:
+        self.ei["focus"] = _clamp(float(focus), 0.0, 1.0)
+        self.ei["stress"] = _clamp(float(stress), 0.0, 1.0)
+        self.ei["energy"] = _clamp(float(energy), 0.0, 1.0)
+        if curiosity is not None:
+            self.ei["curiosity"] = _clamp(float(curiosity), 0.0, 1.0)
+        self.update()
 
-    def set_mode_persona(self, mode: str) -> None:
+    def set_mode(self, mode: str) -> None:
         self.mode = (mode or "study").strip().lower()
-        self._recompute_emotion_tag()
+        self.update()
 
-    def update_ei(self, vec: Dict[str, float]) -> None:
-        if not isinstance(vec, dict):
-            return
-        for k in ("focus", "stress", "energy", "curiosity"):
-            if k in vec:
-                self.ei[k] = _clamp(float(vec.get(k, self.ei.get(k, 0.5))), 0.0, 1.0)
-        self._recompute_emotion_tag()
+    def set_emotion_tag(self, tag: str) -> None:
+        self.emotion_tag = (tag or "calm").strip().lower()
+        # Map emotion tags to smile targets
+        if self.emotion_tag == "cheerful":
+            self._smile.target = 0.65
+        elif self.emotion_tag == "focused":
+            self._smile.target = 0.25
+        elif self.emotion_tag == "stressed":
+            self._smile.target = 0.12
+        else:
+            self._smile.target = 0.35
+        self.update()
 
-    def pulse(self, *, intensity: float = 1.2, duration: float = 0.25) -> None:
-        self._pulse_amp = max(self._pulse_amp, float(intensity))
-        self._pulse_until = time.time() + float(duration)
-
-    def nod(self) -> None:
-        self._nod.target = 1.0
-
-    def tilt(self, amount: float) -> None:
-        self._tilt.target = _clamp(amount, -1.0, 1.0)
-
-    def acknowledge(self) -> None:
-        self.nod()
-        self.tilt(0.25 if random.random() > 0.5 else -0.25)
-        self._arm.target = 0.7  # small "wave-ready" lift
+    def pulse(self, strength: float = 1.0, duration: float = 0.35) -> None:
+        now = time.time()
+        self._pulse_amp = max(self._pulse_amp, _clamp(strength, 0.0, 1.5))
+        self._pulse_until = max(self._pulse_until, now + max(0.05, float(duration)))
 
     # -------------------------
-    # Voice hook (mouth + speaking state)
+    # Internals
     # -------------------------
     def _hook_voice(self) -> None:
-        if get_voice_engine is None:
+        if g_voice_engine is None:
             return
         try:
-            ve = get_voice_engine()
-            if hasattr(ve, "viseme_updated"):
-                ve.viseme_updated.connect(self._on_viseme)  # type: ignore
-            if hasattr(ve, "speaking_state"):
-                ve.speaking_state.connect(self._on_speaking)  # type: ignore
+            # Voice engine can expose viseme and speaking state
+            if hasattr(g_voice_engine, "on_viseme"):
+                g_voice_engine.on_viseme = self._on_viseme  # type: ignore
+            if hasattr(g_voice_engine, "on_speaking"):
+                g_voice_engine.on_speaking = self._on_speaking  # type: ignore
         except Exception:
-            # Safe no-op: avatar must still run
-            return
+            pass
 
     def _on_viseme(self, v: float) -> None:
         self._mouth.target = _clamp(float(v), 0.0, 1.0)
 
     def _on_speaking(self, speaking: bool) -> None:
         self._speaking = bool(speaking)
-        # speaking -> slightly raise hands
-        self._arm.target = 0.9 if self._speaking else 0.0
+        if speaking:
+            self.pulse(0.9, 0.25)
 
-    # -------------------------
-    # Emotion tag computation (simple but stable)
-    # -------------------------
-    def _recompute_emotion_tag(self) -> None:
+    def _advance(self, now: float) -> None:
+        dt = _clamp(now - self._last_ts, 0.0, 0.05)
+        self._last_ts = now
+
         focus = self.ei.get("focus", 0.55)
         stress = self.ei.get("stress", 0.20)
         energy = self.ei.get("energy", 0.70)
 
-        m = (self.mode or "").lower()
-        if m in ("exam", "deep_work"):
-            stress = _clamp(stress + 0.05, 0.0, 1.0)
-            focus = _clamp(focus + 0.05, 0.0, 1.0)
+        # Breath + tilt targets
+        self._tilt.target = (0.5 - stress) * 0.25 + (0.5 - focus) * 0.12
+        self._arm.target = 0.25 if self._speaking else 0.0
 
-        if stress > 0.62:
-            self.emotion_tag = "stressed"
-            self._smile.target = 0.15
-        elif focus > 0.72 and stress < 0.45:
-            self.emotion_tag = "focused"
-            self._smile.target = 0.30
-        elif energy > 0.72 and stress < 0.40:
-            self.emotion_tag = "cheerful"
-            self._smile.target = 0.55
-        else:
-            self.emotion_tag = "calm"
-            self._smile.target = 0.40
-
-    # -------------------------
-    # Render
-    # -------------------------
-    def _advance(self, now: float) -> None:
-        dt = max(0.0, min(0.05, now - self._last_ts))
-        self._last_ts = now
-
-        # Blink scheduling
-        self._blink_t += dt
-        if self._blink_t >= self._blink_next:
-            self._blink = 1.0  # closed
+        # Blink schedule
+        t = now - self._t0
+        if t > self._blink_next:
             self._blink_t = 0.0
-            self._blink_next = 2.2 + random.random() * 2.8
-        else:
-            # reopen smoothly
-            self._blink = max(0.0, self._blink - dt * 6.0)
+            self._blink_next = t + (2.2 + random.random() * 2.2)
 
-        # Ease values
-        self._mouth.step(dt, 10.0)
-        self._smile.step(dt, 6.0)
-        self._tilt.step(dt, 5.0)
-        self._arm.step(dt, 7.0)
-
-        # Nod impulse decay
-        if self._nod.target > 0.0:
-            self._nod.v = 1.0
-            self._nod.target = 0.0
+        # Blink waveform (fast close, slower open)
+        self._blink_t += dt
+        if self._blink_t < 0.10:
+            self._blink = _clamp(self._blink_t / 0.10, 0.0, 1.0)
+        elif self._blink_t < 0.22:
+            self._blink = _clamp(1.0 - (self._blink_t - 0.10) / 0.12, 0.0, 1.0)
         else:
-            self._nod.v = max(0.0, self._nod.v - dt * 3.5)
+            self._blink = 0.0
+
+        # Pulse decay
+        if now < self._pulse_until:
+            amp = self._pulse_amp
+        else:
+            self._pulse_amp *= 0.92
+            amp = self._pulse_amp
+
+        # Expression tracking
+        self._mouth.step(dt, stiffness=22.0, damping=0.80)
+        self._smile.step(dt, stiffness=14.0, damping=0.86)
+        self._tilt.step(dt, stiffness=10.0, damping=0.90)
+        self._nod.step(dt, stiffness=18.0, damping=0.84)
+        self._arm.step(dt, stiffness=12.0, damping=0.88)
+
+        # Stress adds micro “wobble” to keep it alive
+        if random.random() < 0.01 + 0.02 * stress:
+            self._nod.vel += (0.5 + random.random()) * (0.7 + 0.6 * stress)
+
+        # Energy boosts pulse a bit
+        if random.random() < 0.006 + 0.01 * energy:
+            self.pulse(0.5 + 0.6 * energy, 0.22)
 
     def paintEvent(self, event) -> None:  # noqa: N802
         now = time.time()
@@ -252,103 +240,187 @@ class AvatarHeroineWidget(QWidget):
         painter.fillRect(self.rect(), outer_bg)
 
         card = QRectF(10, 10, w - 20, h - 20)
-        painter.setBrush(QBrush(panel))
         painter.setPen(QPen(border, 1))
+        painter.setBrush(QBrush(panel))
         painter.drawRoundedRect(card, 18, 18)
 
-        # Center + gentle alive offsets
+        # Center stage
         cx = card.center().x()
         cy = card.center().y() - 6
 
-        breath = 0.8 * math.sin(t * 1.6)
-        tilt = self._tilt.v
-        nod = self._nod.v
-
-        # Ring
         focus = self.ei.get("focus", 0.55)
         stress = self.ei.get("stress", 0.20)
         energy = self.ei.get("energy", 0.70)
 
+        # Alive motion
+        breath = 0.8 * math.sin(t * 1.6)
+        tilt = self._tilt.v
+        nod = self._nod.v
+
         base = min(card.width(), card.height()) * 0.34
-        pulse = 0.0
-        if now < self._pulse_until:
-            pulse = 0.18 * self._pulse_amp * (0.5 + 0.5 * math.sin(t * 14.0))
-        else:
-            self._pulse_amp = max(0.0, self._pulse_amp * 0.92)
+        pulse = self._pulse_amp * (0.35 + 0.65 * (0.5 + 0.5 * math.sin(t * 6.0)))
 
-        ring_r = base * (1.0 + pulse) * (0.98 + 0.02 * math.sin(t * 2.1))
-
-        # Apply head motion by shifting ring center slightly
+        ring_r = base * (1.0 + 0.06 * pulse) * (0.98 + 0.02 * math.sin(t * 2.1))
         center = QPointF(cx + tilt * 6.0, cy + breath * 2.2 + nod * 3.0)
 
-        a = QColor(self._accent_a[0], self._accent_a[1], self._accent_a[2], 190)
-        b = QColor(self._accent_b[0], self._accent_b[1], self._accent_b[2], 160)
+        # Ring colors
+        a = QColor(*self._accent_a, 190 if self._theme == "dark" else 170)
+        b = QColor(*self._accent_b, 40 if self._theme == "dark" else 55)
 
-        ring_pen = QPen(a, 6 + 6 * focus + 4 * pulse)
-        ring_pen.setCapStyle(Qt.RoundCap)
-        painter.setPen(ring_pen)
+        # Glow ring (wide translucent)
+        painter.setPen(QPen(b, 18 + 14 * energy + 18 * pulse, Qt.SolidLine, Qt.RoundCap))
         painter.setBrush(Qt.NoBrush)
         painter.drawEllipse(center, ring_r, ring_r)
 
-        glow_pen = QPen(QColor(b.red(), b.green(), b.blue(), 40), 18 + 14 * energy + 18 * pulse)
-        glow_pen.setCapStyle(Qt.RoundCap)
-        painter.setPen(glow_pen)
+        # Main ring
+        painter.setPen(QPen(a, 6 + 6 * focus + 4 * pulse, Qt.SolidLine, Qt.RoundCap))
         painter.drawEllipse(center, ring_r, ring_r)
 
-        # Face + shoulders (stylized)
+        # Face blob (screen)
         face_r = ring_r * 0.52
-        face_color = QColor(25, 25, 35, 255) if self._theme == "dark" else QColor(235, 236, 245, 255)
+        if self._theme == "dark":
+            face = QColor(25, 25, 35, 255)
+        else:
+            face = QColor(245, 245, 252, 255)
+
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(face_color))
+        painter.setBrush(QBrush(face))
         painter.drawEllipse(center, face_r, face_r)
 
-        # Shoulders + torso base
+        # Torso
         torso_w = face_r * 1.6
         torso_h = face_r * 1.05
         torso_y = center.y() + face_r * 0.78 + breath * 1.0
         torso = QRectF(center.x() - torso_w / 2, torso_y - torso_h / 2, torso_w, torso_h)
-        torso_color = QColor(20, 20, 32, 240) if self._theme == "dark" else QColor(245, 245, 252, 240)
+
+        if self._theme == "dark":
+            torso_color = QColor(20, 20, 32, 240)
+        else:
+            torso_color = QColor(230, 232, 245, 235)
+
         painter.setBrush(QBrush(torso_color))
         painter.drawRoundedRect(torso, 18, 18)
 
-        # Hands (two soft circles) – "wave" illusion
+        # Hands
         arm_lift = self._arm.v
         hand_r = face_r * 0.14
         hx = torso_w * 0.52
-        hy = torso_y - torso_h * 0.10 - arm_lift * face_r * 0.22 + math.sin(t * 3.5) * (0.6 if self._speaking else 0.2)
-        hand_color = QColor(220, 200, 185, 220) if self._theme == "dark" else QColor(180, 145, 130, 210)
-        painter.setBrush(QBrush(hand_color))
+        hy = torso_y - torso_h * 0.10 - arm_lift * face_r * 0.22 + math.sin(t * 3.5) * 0.2
+
+        if self._theme == "dark":
+            hand = QColor(220, 200, 185, 220)
+        else:
+            hand = QColor(190, 160, 140, 170)
+
+        painter.setBrush(QBrush(hand))
         painter.drawEllipse(QPointF(center.x() - hx, hy), hand_r, hand_r)
         painter.drawEllipse(QPointF(center.x() + hx, hy), hand_r, hand_r)
 
-        # Eyes
-        eye_y = center.y() - face_r * 0.15 + nod * 1.5
-        eye_dx = face_r * 0.22
-        eye_r = face_r * 0.06 * (0.9 + 0.2 * (1.0 - stress))
-        blink = 1.0 - _clamp(self._blink, 0.0, 1.0)  # 0=open, 1=closed -> invert
-        blink = max(0.20, blink)
+        # Eyes — big LED panels with flowing highlights (reference style)
+        eye_y = center.y() - face_r * 0.10 + nod * 1.5
+        eye_dx = face_r * 0.23
 
-        eye_color = QColor(230, 230, 255) if self._theme == "dark" else QColor(30, 30, 50)
-        painter.setBrush(QBrush(eye_color))
+        # Blink: _blink goes 0=open → 1=closed (we invert)
+        blink = 1.0 - _clamp(self._blink, 0.0, 1.0)
+        blink = max(0.12, blink)
+
+        eye_w = face_r * 0.34
+        eye_h = face_r * 0.26 * blink
+
+        # Colors
+        if self._theme == "dark":
+            led = QColor(255, 230, 60, 235)      # bright yellow
+            glow = QColor(255, 230, 60, 70)      # soft glow
+            shine = QColor(255, 255, 255, 140)   # highlights
+        else:
+            led = QColor(240, 200, 40, 230)
+            glow = QColor(240, 200, 40, 50)
+            shine = QColor(255, 255, 255, 160)
+
+        # Time-based flowing highlight (tiny movement so eyes feel "alive")
+        flow = 0.5 + 0.5 * math.sin(t * 2.4)
+        drift_x = (flow - 0.5) * eye_w * 0.10
+        drift_y = (0.5 - flow) * eye_h * 0.14
+
         painter.setPen(Qt.NoPen)
-        painter.drawEllipse(QPointF(center.x() - eye_dx, eye_y), eye_r, eye_r * blink)
-        painter.drawEllipse(QPointF(center.x() + eye_dx, eye_y), eye_r, eye_r * blink)
 
-        # Mouth (viseme-driven)
-        mouth_y = center.y() + face_r * 0.18 + nod * 1.0
-        mouth_w = face_r * 0.30
-        mouth_h = face_r * (0.05 + 0.18 * self._mouth.v)
-        curve = self._smile.v
+        # Glow behind eyes
+        painter.setBrush(QBrush(glow))
+        painter.drawEllipse(QPointF(center.x() - eye_dx, eye_y), eye_w * 0.70, eye_h * 0.80)
+        painter.drawEllipse(QPointF(center.x() + eye_dx, eye_y), eye_w * 0.70, eye_h * 0.80)
+
+        # Eye panels (rounded rectangles)
+        painter.setBrush(QBrush(led))
+        left_eye = QRectF(center.x() - eye_dx - eye_w / 2, eye_y - eye_h / 2, eye_w, eye_h)
+        right_eye = QRectF(center.x() + eye_dx - eye_w / 2, eye_y - eye_h / 2, eye_w, eye_h)
+        painter.drawRoundedRect(left_eye, 10, 10)
+        painter.drawRoundedRect(right_eye, 10, 10)
+
+        # Highlights (moving slightly = "flowing eyes")
+        painter.setBrush(QBrush(shine))
+        # top-left block
+        painter.drawRoundedRect(
+            QRectF(left_eye.left() + eye_w * 0.12 + drift_x, left_eye.top() + eye_h * 0.10 + drift_y,
+                   eye_w * 0.30, eye_h * 0.28),
+            6, 6
+        )
+        painter.drawRoundedRect(
+            QRectF(right_eye.left() + eye_w * 0.12 + drift_x, right_eye.top() + eye_h * 0.10 + drift_y,
+                   eye_w * 0.30, eye_h * 0.28),
+            6, 6
+        )
+        # bottom-right dot
+        painter.drawRoundedRect(
+            QRectF(left_eye.left() + eye_w * 0.58 - drift_x, left_eye.top() + eye_h * 0.52 - drift_y,
+                   eye_w * 0.22, eye_h * 0.22),
+            6, 6
+        )
+        painter.drawRoundedRect(
+            QRectF(right_eye.left() + eye_w * 0.58 - drift_x, right_eye.top() + eye_h * 0.52 - drift_y,
+                   eye_w * 0.22, eye_h * 0.22),
+            6, 6
+        )
+
+        # Mouth — tiny worried LED curve (matches reference)
+        mouth_y = center.y() + face_r * 0.22 + nod * 1.0
+        open_amt = _clamp(self._mouth.v, 0.0, 1.0)
+
+        # Emotion curve: cheerful lifts, stressed droops
+        mood = 0.0
         if self.emotion_tag == "stressed":
-            curve = 0.15
+            mood = -1.0
         elif self.emotion_tag == "focused":
-            curve = 0.25
+            mood = 0.2
         elif self.emotion_tag == "cheerful":
-            curve = 0.60
+            mood = 0.7
 
-        mouth_color = QColor(245, 210, 210, 220) if self._theme == "dark" else QColor(120, 60, 60, 210)
-        painter.setBrush(QBrush(mouth_color))
-        painter.drawRoundedRect(QRectF(center.x() - mouth_w, mouth_y - mouth_h / 2, mouth_w * 2, mouth_h), 8, 8)
+        mouth_w = face_r * 0.18
+        mouth_h = face_r * (0.025 + 0.06 * open_amt)
+
+        if self._theme == "dark":
+            mouth_color = QColor(255, 230, 80, 210)
+        else:
+            mouth_color = QColor(160, 120, 40, 210)
+
+        pen = QPen(mouth_color, max(2, int(face_r * 0.035)))
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+
+        x0 = center.x()
+        y0 = mouth_y
+
+        # Draw a small "m" using two arcs; mood shifts the curve up/down
+        left_rect = QRectF(x0 - mouth_w * 0.90, y0 - mouth_h * 0.60, mouth_w * 0.90, mouth_h * 1.4)
+        right_rect = QRectF(x0, y0 - mouth_h * 0.60, mouth_w * 0.90, mouth_h * 1.4)
+
+        # mood shifts: cheerful -> less droop; stressed -> more droop
+        offset = (1.0 - mood) * mouth_h * 0.35
+        left_rect.translate(0, offset)
+        right_rect.translate(0, offset)
+
+        painter.drawArc(left_rect, 0 * 16, -180 * 16)
+        painter.drawArc(right_rect, 0 * 16, -180 * 16)
 
         # Name + emotion label
         painter.setPen(QPen(text, 1))
@@ -356,4 +428,5 @@ class AvatarHeroineWidget(QWidget):
         label = f"Etherea • {self.emotion_tag}"
         if self.thinking:
             label += " • thinking…"
-        painter.drawText(QRectF(card.left() + 18, card.top() + 12, card.width() - 36, 18), Qt.AlignLeft | Qt.AlignVCenter, label)
+        painter.drawText(QRectF(card.left() + 18, card.top() + 12, card.width() - 36, 18),
+                         Qt.AlignLeft | Qt.AlignVCenter, label)
