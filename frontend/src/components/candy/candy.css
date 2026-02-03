@@ -1,0 +1,146 @@
+/* --- Base Candy Styles --- */
+.candy-button, .candy-card, .candy-chip {
+  border: none;
+  border-radius: 1.5rem; /* Slightly larger radius for a softer look */
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+  box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2),
+              inset 0px 1px 1px rgba(255, 255, 255, 0.4),
+              inset 0px -1px 1px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy transition */
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
+  color: white;
+}
+
+.candy-button:hover, .candy-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0px 12px 20px rgba(0, 0, 0, 0.25);
+}
+
+.candy-button:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Component Specific Styles --- */
+.candy-button {
+  padding: 0.9rem 1.8rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  background-color: hsla(340, 100%, 60%, 1);
+}
+
+.candy-card {
+  padding: 2rem;
+  background-color: hsla(210, 20%, 25%, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.candy-chip {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background-color: hsla(260, 80%, 65%, 1);
+}
+
+
+/* --- Spotlight & Tooltip --- */
+.spotlight-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(10, 0, 20, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  pointer-events: none; /* Allow clicks to pass through overlay */
+}
+
+.spotlight-target {
+  position: absolute;
+  pointer-events: all; /* But allow interaction with the highlighted element */
+  border-radius: 1.5rem;
+  transition: all 0.3s ease-out;
+}
+
+.candyGlow {
+   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1),
+              0 0 20px 8px hsla(340, 100%, 70%, 0.7),
+              0 0 45px 12px hsla(260, 80%, 75%, 0.6);
+}
+
+.candyPulse {
+  animation: candyPulseAnim 1.5s infinite;
+}
+
+@keyframes candyPulseAnim {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1),
+                0 0 20px 8px hsla(340, 100%, 70%, 0.7),
+                0 0 45px 12px hsla(260, 80%, 75%, 0.6);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1),
+                0 0 30px 12px hsla(340, 100%, 70%, 0.9),
+                0 0 60px 18px hsla(260, 80%, 75%, 0.8);
+  }
+}
+
+.softFocus {
+   box-shadow: 0 0 0 100vmax rgba(0,0,0,0.7),
+              0 0 15px 5px rgba(255,255,255,0.9);
+}
+
+.candy-tooltip-bubble {
+  position: absolute;
+  background-image: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 1.2rem;
+  font-size: 1rem;
+  line-height: 1.4;
+  max-width: 300px;
+  transform: translate(-50%, -125%); /* Position above the target */
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1001;
+}
+
+.candy-tooltip-bubble::after { /* The little triangle */
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #6c63ff; /* Match bottom of gradient */
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -110%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -125%) scale(1);
+  }
+}
+
+
+/* --- Aurora Ring Moods --- */
+.aurora-ring.mood-dramatic {
+    animation-duration: 0.5s;
+    border-color: #ff3b3b;
+}
+
+.aurora-ring.mood-cheerful {
+    border-color: #ffda3b;
+}
+
+.aurora-ring.pulsing {
+  animation-name: pulse;
+}

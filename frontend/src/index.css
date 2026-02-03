@@ -1,0 +1,72 @@
+:root {
+  --brand-primary: #ff6b6b;
+  --brand-secondary: #f06595;
+  --surface-dark: #2c3e50;
+  --surface-light: #ecf0f1;
+  --text-light: #ecf0f1;
+  --text-dark: #2c3e50;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--surface-dark);
+  color: var(--text-light);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+}
+
+.panel {
+  padding: 2rem;
+  margin: 1rem;
+  border-radius: 1rem;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.candy-button {
+  background-image: linear-gradient(
+    to top,
+    var(--brand-primary),
+    var(--brand-secondary)
+  );
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 9999px;
+  font-weight: bold;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s;
+}
+
+.candy-button:hover {
+  transform: translateY(-2px);
+}
+
+.avatar-container {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  display: flex;
+  align-items: center;
+}
+
+.avatar-bubble {
+  background-color: white;
+  color: var(--text-dark);
+  padding: 1rem;
+  border-radius: 1rem;
+  margin-left: 1rem;
+}
