@@ -9,6 +9,13 @@
     # pkgs.go
     pkgs.python311
     pkgs.python311Packages.pip
+    pkgs.python311Packages.pyside6
+    pkgs.python311Packages.pygame
+    pkgs.python311Packages.pyttsx3
+    pkgs.python311Packages.speech-recognition
+    pkgs.python311Packages.openai
+    pkgs.python311Packages.requests
+    pkgs.python311Packages.numpy
     pkgs.nodejs_20
     pkgs.gtk3
     # pkgs.nodePackages.nodemon
