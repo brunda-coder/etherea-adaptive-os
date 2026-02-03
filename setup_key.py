@@ -7,19 +7,23 @@ def setup_api_key():
     root = tk.Tk()
     root.withdraw()  # Hide main window
 
-    key = simpledialog.askstring("OpenAI API Key Needs Setup",
-                                 "Enter your OpenAI API Key (starts with sk-...):\n\n This will be saved to .env locally.",
-                                 show="*")
+    key = simpledialog.askstring(
+        "Gemini API Key Setup",
+        "Enter your Gemini API Key (Google AI Studio):\n\n"
+        "This will be saved to .env locally as GEMINI_API_KEY.\n"
+        "No key = AI disabled mode (UI still works).",
+        show="*",
+    )
 
     if key:
         with open(".env", "w", encoding="utf-8") as f:
-            f.write(f"OPENAI_API_KEY={key}\n")
-            f.write(f"OPENAI_API_KEY2={key}\n")  # keep compatibility with GitHub secret naming
-        messagebox.showinfo(
-            "Success", "API Key saved to .env!\n\nRestart Etherea to apply.")
+            f.write(f"GEMINI_API_KEY={key}\n")
+            # Optional convenience flags
+            f.write("AI_PROVIDER=gemini\n")
+
+        messagebox.showinfo("Success", "Gemini API key saved to .env ✅")
     else:
-        messagebox.showwarning(
-            "Cancelled", "No key entered. Etherea will run in offline mode.")
+        messagebox.showwarning("No Key", "No key entered. AI will remain disabled (UI still works).")
 
 
 if __name__ == "__main__":
