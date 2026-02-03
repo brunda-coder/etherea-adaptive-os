@@ -18,6 +18,8 @@
     pkgs.python311Packages.numpy
     pkgs.nodejs_20
     pkgs.gtk3
+    pkgs.glib
+    pkgs.stdenv.cc.cc.lib
     # pkgs.nodePackages.nodemon
   ];
 
