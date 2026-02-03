@@ -1,0 +1,53 @@
+"""
+This module manages the state of the Aurora, which is a visual representation
+of the system's focus, cognitive load, and energy levels. The state is driven
+by the global EthereaState and is used by the AuroraCanvasWidget to render
+the dynamic visual effect.
+"""
+from typing import List, Dict, Any, Callable
+
+class AuroraState:
+    """
+    Manages the visual properties of the Aurora based on the system's state.
+    """
+    def __init__(self, state):
+        self.state = state
+        self.intensity = 0.5
+        self.pulse_speed = 1.0
+        self.temperature = 0.5  # 0.0 (cool blue) to 1.0 (warm red)
+        self.active_profile = "default"
+        self._action_filters = []
+
+    def add_action_filter(self, filt: Callable[[Dict[str, Any]], Dict[str, Any]]):
+        """Adds a filter that can modify actions before they are applied."""
+        self._action_filters.append(filt)
+
+    def _filter_actions(self, action: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Passes an action through all registered filters. This allows other
+        parts of the system (like workspaces) to modify Aurora's behavior.
+        The docstring here is now fixed.
+        """
+        for f in self._action_filters:
+            action = f(action)
+            if action is None:
+                break
+        return action
+
+    def update(self):
+        """
+        Updates the Aurora's properties based on the global EthereaState.
+        This method should be called periodically.
+        """
+        # Example logic: Tie intensity to focus and temperature to stress
+        self.intensity = self.state.focus_level * 0.8 + 0.2  # More focus = more intense
+        self.temperature = self.state.cognitive_load  # More load = warmer color
+        self.pulse_speed = 1.0 + (self.state.energy_level * 2.0) # More energy = faster pulse
+
+    def apply_profile(self, profile_name: str, settings: Dict[str, Any]):
+        """Applies a named profile to the Aurora."""
+        self.active_profile = profile_name
+        self.intensity = settings.get('intensity', self.intensity)
+        self.pulse_speed = settings.get('pulse_speed', self.pulse_speed)
+        self.temperature = settings.get('temperature', self.temperature)
+        print(f"AURORA: Profile '{profile_name}' applied.")

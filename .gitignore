@@ -1,21 +1,20 @@
-# Build artifacts
-dist/
-build/
-
-# Python
+# Environment
+.env
 __pycache__/
 *.pyc
-*.spec
 
-# Archives
-*.zip
+# Build artifacts
+/build
+/dist
+*.egg-info
 
-# Logs
-logs/
-
-# Data
-data/etherea.db
-
-# IDE
-.idx/
+# Node
 node_modules
+/web_showcase/node_modules
+/web_showcase/build
+npm-debug.log
+yarn-error.log
+
+# OS-specific
+.DS_Store
+Thumbs.db

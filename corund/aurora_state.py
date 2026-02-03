@@ -1,249 +1,57 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Callable, Dict, List, Optional
-
-from corund.aurora_actions import ActionRegistry, ActionSpec
-
-
-@dataclass(frozen=True)
-class ActionItem:
-    action_id: str
-    label: str
-    intent: str
-    enabled: bool
-
-
-@dataclass(frozen=True)
-class AuroraCanvasState:
-    current_mode: str
-    focus: float
-    stress: float
-    energy: float
-    workspace_id: Optional[str]
-    workspace_name: Optional[str]
-    session_active: bool
-    layout_density: str
-    attention_level: str
-    suggested_actions: List[ActionItem]
-    theme_profile: Dict[str, str | bool]
-    nonessential_opacity: float
-    spacing: int
-    panel_visibility: Dict[str, bool]
-    overlay_text: str
-    warning_text: str
-    last_saved: Optional[str]
-
+from dataclasses import dataclass, field
 
 @dataclass
-class AuroraRuntimeState:
-    current_mode: str = "idle"
-    focus: float = 0.4
-    stress: float = 0.2
-    energy: float = 0.6
-    workspace_id: Optional[str] = None
-    workspace_name: Optional[str] = None
-    session_active: bool = False
-    reduce_motion: bool = False
-    emotion_tag: str = "calm"
-    dnd_active: bool = False
-    error_active: bool = False
-    last_saved: Optional[str] = None
+class AuroraState:
+    """
+    Represents the visual state of the Aurora effect.
+    This is the single source of truth for the Aurora's appearance.
+    """
+    # The overall brightness and activity level of the aurora.
+    # Range: 0.0 (calm) to 1.0 (intense).
+    intensity: float = 0.5
 
+    # The speed at which the aurora effect pulses and shifts.
+    # Range: 0.5 (slow) to 2.0 (fast).
+    pulse_speed: float = 1.0
 
-@dataclass(frozen=True)
-class ModeRule:
-    layout_density: str
-    nonessential_opacity: float
-    spacing: int
-    panel_visibility: Dict[str, bool]
-    overlay_text: str
-    warning_text: str
+    # The color temperature of the aurora.
+    # Range: 0.0 (cool blues) to 1.0 (warm reds).
+    temperature: float = 0.2
 
+    # A descriptive label for the current emotional or informational state.
+    # Example: "listening", "thinking", "curious", "error"
+    mood: str = "neutral"
 
-MODE_RULES: Dict[str, ModeRule] = {
-    "idle": ModeRule(
-        layout_density="calm",
-        nonessential_opacity=0.85,
-        spacing=12,
-        panel_visibility={"actions": True, "status": True, "session": True},
-        overlay_text="",
-        warning_text="",
-    ),
-    "focus": ModeRule(
-        layout_density="dense",
-        nonessential_opacity=0.35,
-        spacing=6,
-        panel_visibility={"actions": True, "status": True, "session": True},
-        overlay_text="",
-        warning_text="",
-    ),
-    "break": ModeRule(
-        layout_density="calm",
-        nonessential_opacity=0.75,
-        spacing=14,
-        panel_visibility={"actions": True, "status": True, "session": True},
-        overlay_text="",
-        warning_text="",
-    ),
-    "blocked": ModeRule(
-        layout_density="calm",
-        nonessential_opacity=0.2,
-        spacing=8,
-        panel_visibility={"actions": True, "status": True, "session": True},
-        overlay_text="Override active",
-        warning_text="",
-    ),
-    "error": ModeRule(
-        layout_density="normal",
-        nonessential_opacity=0.45,
-        spacing=10,
-        panel_visibility={"actions": True, "status": True, "session": True},
-        overlay_text="",
-        warning_text="System attention needed",
-    ),
-}
+# --- State Management ---
 
-def _time_of_day(now: datetime) -> str:
-    hour = now.hour
-    if 5 <= hour < 12:
-        return "morning"
-    if 12 <= hour < 17:
-        return "afternoon"
-    if 17 <= hour < 21:
-        return "evening"
-    return "night"
+# The global, singleton instance of the AuroraState.
+_aurora_state_instance = AuroraState()
 
-def _attention_level(focus: float, stress: float, energy: float) -> str:
-    if stress >= 0.7 or energy <= 0.35:
-        return "low"
-    if focus >= 0.7 and energy >= 0.6 and stress <= 0.5:
-        return "high"
-    return "med"
+def get_aurora_state() -> AuroraState:
+    """Returns the singleton instance of the AuroraState."""
+    return _aurora_state_instance
 
-def _apply_mode_effective(runtime: AuroraRuntimeState) -> str:
-    if runtime.error_active:
-        return "error"
-    if runtime.dnd_active or runtime.current_mode == "blocked":
-        return "blocked"
-    if runtime.current_mode in MODE_RULES:
-        return runtime.current_mode
-    return "idle"
+def update_aurora_state(intensity: float = None, pulse_speed: float = None, 
+                        temperature: float = None, mood: str = None):
+    """
+    Updates the global AuroraState with new values.
+    Only non-None parameters will update the state.
+    """
+    global _aurora_state_instance
+    
+    if intensity is not None:
+        _aurora_state_instance.intensity = max(0.0, min(1.0, intensity))
+        
+    if pulse_speed is not None:
+        _aurora_state_instance.pulse_speed = max(0.5, min(2.0, pulse_speed))
+        
+    if temperature is not None:
+        _aurora_state_instance.temperature = max(0.0, min(1.0, temperature))
+        
+    if mood is not None:
+        _aurora_state_instance.mood = mood
 
-def _filter_actions(
-    registry: ActionRegistry,
-    runtime: AuroraRuntimeState,
-    mode: str,
-) -> List[ActionItem]:
-    "'''
-    Return mode-appropriate actions, filtered for session/DND rules.
-
-    This function must be extremely defensive because ActionRegistry can be
-    partially loaded in sparse / packaging contexts.
-    '''
-    try:
-        registry_actions = registry.list_actions()
-    except RecursionError:
-        registry_actions = getattr(registry, "_actions", [])
-    except Exception:
-        registry_actions = getattr(registry, "_actions", [])
-
-    actions: List[ActionSpec] = []
-    for action in list(registry_actions or []):
-        try:
-            if getattr(action, "requires_session", False) and not runtime.session_active:
-                continue
-            if runtime.dnd_active and getattr(action, "dnd_blocked", False):
-                continue
-            actions.append(action)
-        except Exception:
-            continue
-
-    actions.sort(key=lambda item: getattr(item, "priority", 0))
-
-    if mode == "idle":
-        actions = actions[:3]
-    elif mode == "focus":
-        actions = [a for a in actions if getattr(a, "category", "") in ("mode", "workspace")]
-    elif mode == "break":
-        actions = [a for a in actions if getattr(a, "category", "") in ("mode", "override", "workspace")]
-    elif mode == "blocked":
-        actions = [a for a in actions if getattr(a, "category", "") == "override"]
-    elif mode == "error":
-        actions = [a for a in actions if getattr(a, "category", "") != "mode"]
-
-    return [
-        ActionItem(
-            action_id=str(getattr(action, "action_id", "")),
-            label=str(getattr(action, "label", getattr(action, "action_id", ""))) ,
-            intent=str(getattr(action, "intent", "")),
-            enabled=not (runtime.dnd_active and getattr(action, "dnd_blocked", False)),
-        )
-        for action in actions
-        if getattr(action, "action_id", None)
-    ]
-
-def compute_canvas_state(
-    runtime: AuroraRuntimeState,
-    registry: ActionRegistry,
-    now: Optional[datetime] = None,
-) -> AuroraCanvasState:
-    now = now or datetime.now()
-    effective_mode = _apply_mode_effective(runtime)
-    rule = MODE_RULES.get(effective_mode, MODE_RULES["idle"])
-    attention = _attention_level(runtime.focus, runtime.stress, runtime.energy)
-    theme_profile = {
-        "time_of_day": _time_of_day(now),
-        "emotion_tag": runtime.emotion_tag,
-        "reduce_motion": runtime.reduce_motion,
-    }
-    actions = _filter_actions(registry, runtime, effective_mode)
-
-    return AuroraCanvasState(
-        current_mode=effective_mode,
-        focus=runtime.focus,
-        stress=runtime.stress,
-        energy=runtime.energy,
-        workspace_id=runtime.workspace_id,
-        workspace_name=runtime.workspace_name,
-        session_active=runtime.session_active,
-        layout_density=rule.layout_density,
-        attention_level=attention,
-        suggested_actions=actions,
-        theme_profile=theme_profile,
-        nonessential_opacity=rule.nonessential_opacity,
-        spacing=rule.spacing,
-        panel_visibility=rule.panel_visibility,
-        overlay_text=rule.overlay_text,
-        warning_text=rule.warning_text,
-        last_saved=runtime.last_saved,
-    )
-
-
-class AuroraStateStore:
-    def __init__(self, registry: ActionRegistry):
-        self._registry = registry
-        self._runtime = AuroraRuntimeState()
-        self._listeners: List[Callable[[AuroraCanvasState], None]] = []
-
-    @property
-    def runtime(self) -> AuroraRuntimeState:
-        return self._runtime
-
-    def subscribe(self, listener: Callable[[AuroraCanvasState], None]) -> None:
-        self._listeners.append(listener)
-
-    def update(self, **kwargs) -> None:
-        for key, value in kwargs.items():
-            if hasattr(self._runtime, key):
-                setattr(self._runtime, key, value)
-        self.notify()
-
-    def notify(self) -> None:
-        state = compute_canvas_state(self._runtime, self._registry)
-        for listener in self._listeners:
-            listener(state)
-
-    def get_canvas_state(self) -> AuroraCanvasState:
-        return compute_canvas_state(self._runtime, self._registry)
+    # Optionally, you could add a signal emission here if other parts
+    # of the application need to react to state changes immediately.
+    # For example: from corund.signals import signal_bus
+    # signal_bus.aurora_state_changed.emit()
