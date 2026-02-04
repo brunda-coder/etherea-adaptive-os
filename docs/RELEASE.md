@@ -8,23 +8,17 @@ git push origin v1.0.0
 ```
 
 GitHub Actions will build:
-- `EthereaOS_Windows.exe`
-- `EthereaOS_Linux.AppImage`
+- `Etherea-<VERSION>-Windows.exe`
+- `Etherea-<VERSION>-Linux.AppImage`
+- `SHA256SUMS.txt`
 
-and upload both to the GitHub Release for that tag.
-# Release Process (Current)
+and upload them to the GitHub Release for that tag.
 
-This repo uses **Release-only** GitHub Actions. Workflows run only when a GitHub Release is **published**.
-
-## How to ship a release
-1) Go to GitHub → **Releases** → **Draft a new release**
-2) Choose a tag (example: `v1.0.0`)
-3) Publish the release
-
-## What happens automatically
-- **Release Tests (pytest)** runs first (fast fail if tests fail).
-- **Release Build (Windows EXE)** builds and uploads the EXE artifact to the Release.
+## Direct Download Links (for website buttons)
+- Latest:
+  `https://github.com/<OWNER>/<REPO>/releases/latest/download/<FILENAME>`
+- Versioned:
+  `https://github.com/<OWNER>/<REPO>/releases/download/<TAG>/<FILENAME>`
 
 ## Notes
-- Workflows do **not** run on every push/PR (no CI spam).
-- If you need a manual run: use **workflow_dispatch** from Actions tab.
+- Use `docs/release_notes_template.md` for release notes.

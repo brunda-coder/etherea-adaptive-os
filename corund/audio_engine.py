@@ -2,6 +2,7 @@ import os
 import threading
 import time
 
+from corund.resource_manager import ResourceManager
 try:
     import pygame
 except Exception:
@@ -22,7 +23,7 @@ class AudioEngine:
         self._volume = 0.5
 
         # Default track (you can change later)
-        self.default_track = os.path.join("core", "assets", "audio", "etherea_theme_a.wav")
+        self.default_track = ResourceManager.resolve_path("core/assets/audio/etherea_theme_a.wav")
 
     def set_volume(self, vol: float):
         self._volume = max(0.0, min(1.0, float(vol)))

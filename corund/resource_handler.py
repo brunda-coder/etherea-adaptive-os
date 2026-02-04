@@ -1,6 +1,7 @@
 import os
 import sys
 
+from corund.resource_manager import ResourceManager
 
 def get_resource_path(relative_path: str) -> str:
     """
@@ -19,8 +20,7 @@ def get_resource_path(relative_path: str) -> str:
             base_path = sys._MEIPASS
         else:
             # Development runtime
-            base_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), ".."))
+            base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         return os.path.join(base_path, relative_path)
     except Exception as e:
         # Fail gracefully with debug info
@@ -33,14 +33,14 @@ def get_resource_path(relative_path: str) -> str:
 
 def get_ui_resource(name: str) -> str:
     """Get absolute path to a UI resource file."""
-    return get_resource_path(os.path.join("core", "ui", name))
+    return ResourceManager.resolve_path(os.path.join("core", "ui", name))
 
 
 def get_shader_resource(name: str) -> str:
     """Get absolute path to a UI shader resource."""
-    return get_resource_path(os.path.join("core", "ui", "shaders", name))
+    return ResourceManager.resolve_path(os.path.join("core", "ui", "shaders", name))
 
 
 def get_audio_resource(name: str) -> str:
     """Get absolute path to an audio asset."""
-    return get_resource_path(os.path.join("assets", "audio", name))
+    return ResourceManager.resolve_path(os.path.join("assets", "audio", name))

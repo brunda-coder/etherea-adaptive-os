@@ -7,13 +7,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget, QTextEdit
 
 from corund.ui.juicy_button import JuicyButton
+from corund.resource_manager import ResourceManager
 
 
 class DemoModePanel(QFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("panel", True)
-        self.script_path = Path("assets/demo/demo_script_01.json")
+        self.script_path = Path(ResourceManager.resolve_path("assets/demo/demo_script_01.json"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)

@@ -1,0 +1,129 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-core.txt -r requirements-desktop.txt -r requirements-ui.txt
+          python -m pip install pyinstaller
+
+      - name: Build Windows exe
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          if ($version.StartsWith("v")) { $version = $version.Substring(1) }
+          pyinstaller --clean --noconfirm --onefile etherea.spec
+          Move-Item -Force dist\Etherea.exe "dist\Etherea-$version-Windows.exe"
+
+      - name: Smoke test (self-test)
+        shell: pwsh
+        env:
+          ETHEREA_DATA_DIR: ${{ github.workspace }}\selftest
+        run: |
+          New-Item -ItemType Directory -Path $env:ETHEREA_DATA_DIR -Force | Out-Null
+          $version = "${{ github.ref_name }}"
+          if ($version.StartsWith("v")) { $version = $version.Substring(1) }
+          dist\Etherea-$version-Windows.exe --self-test
+          if (-Not (Test-Path "$env:ETHEREA_DATA_DIR\self_test_ok.txt")) { throw "Self-test marker missing." }
+
+      - name: Startup smoke (source launcher)
+        shell: pwsh
+        env:
+          ETHEREA_DATA_DIR: ${{ github.workspace }}\selftest
+          ETHEREA_PROFILE_STARTUP: "1"
+        run: |
+          python scripts/ci/startup_smoke.py
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist
+          path: dist/Etherea-*-Windows.exe
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 fuse libgl1-mesa-glx libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxrender1
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-core.txt -r requirements-desktop.txt -r requirements-ui.txt
+          python -m pip install pyinstaller
+
+      - name: Build AppImage
+        run: |
+          bash scripts/build_linux.sh "${{ github.ref_name }}"
+
+      - name: Smoke test marker
+        run: |
+          test -f "${{ github.workspace }}/selftest/self_test_ok.txt"
+
+      - name: Startup smoke (source launcher)
+        env:
+          ETHEREA_DATA_DIR: ${{ github.workspace }}/selftest
+          ETHEREA_PROFILE_STARTUP: "1"
+        run: |
+          python scripts/ci/startup_smoke.py
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-dist
+          path: Etherea-*-Linux.AppImage
+          if-no-files-found: error
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum windows-dist/* linux-dist/* > SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          make_latest: auto
+          files: |
+            dist/windows-dist/*
+            dist/linux-dist/*
+            dist/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
