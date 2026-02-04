@@ -1,0 +1,30 @@
+{
+  "title": "Etherea Demo Script 01",
+  "steps": [
+    {
+      "title": "Aurora Ring · Mood Canvas",
+      "moment": "Breathing aura pulse",
+      "action": "aurora_state:calm"
+    },
+    {
+      "title": "Avatar Presence",
+      "moment": "Soft halo focus",
+      "action": "avatar_line:Ready to begin a calm focus?"
+    },
+    {
+      "title": "Command Palette",
+      "moment": "Command shimmer",
+      "action": "command:Start Focus"
+    },
+    {
+      "title": "Workspace Shift",
+      "moment": "Cinematic title card",
+      "action": "scene:Developer / Deep Work"
+    },
+    {
+      "title": "Session Summary",
+      "moment": "Gentle praise",
+      "action": "summary:25 min Deep Focus"
+    }
+  ]
+}

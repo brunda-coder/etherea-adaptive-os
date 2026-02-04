@@ -1,5 +1,7 @@
 import sys
+
 from PySide6.QtWidgets import QApplication
+
 from corund.app_controller import AppController
 
 def main():
@@ -11,7 +13,7 @@ def main():
 
     # Initialize the main application controller
     try:
-        controller = AppController()
+        controller = AppController(app)
         controller.initialize()
     except Exception as e:
         print(f"FATAL: Could not initialize AppController: {e}")
