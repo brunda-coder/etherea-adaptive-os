@@ -204,6 +204,23 @@ class AppController(QObject):
         self.log(f"🧠 Proactive trigger: {trigger_type}")
 
     def _handle_avatar_commands(self, cmd: str) -> bool:
+        normalized = cmd.lower()
+        if normalized in {"demo mode", "start demo", "start demo mode", "demo start", "guided tour"}:
+            self.window.start_demo_mode()
+            self.log("🎬 Demo mode started.")
+            return True
+        if normalized in {"stop demo", "stop demo mode", "end demo", "end demo mode", "exit demo"}:
+            self.window.stop_demo_mode()
+            self.log("🛑 Demo mode ended.")
+            return True
+        if normalized in {"demo next", "next demo", "next step", "tour next"}:
+            self.window.next_demo_step()
+            self.log("➡️ Demo step advanced.")
+            return True
+        if normalized in {"demo back", "demo prev", "previous step", "tour back"}:
+            self.window.prev_demo_step()
+            self.log("⬅️ Demo step reversed.")
+            return True
         return False
 
     def _write_log(self, message: str) -> None:

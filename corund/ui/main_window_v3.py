@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Slot
 
 from corund.ui.command_palette import CommandPalette
+from corund.ui.demo_mode_overlay import DemoModeOverlay
 from corund.ui.avatar_heroine_widget import AvatarHeroineWidget
 from corund.ui.aurora_canvas_widget import AuroraCanvasWidget
 from corund.workspace_registry import WorkspaceType
@@ -62,6 +63,9 @@ class EthereaMainWindowV3(QMainWindow):
         right_layout = QVBoxLayout()
         right_layout.setSpacing(10)
 
+        self.demo_overlay = DemoModeOverlay(steps=self._build_demo_steps())
+        right_layout.addWidget(self.demo_overlay)
+
         self.title = QLabel("Etherea Console")
         self.title.setStyleSheet("font-size:18px; font-weight:700; color:white;")
         right_layout.addWidget(self.title)
@@ -98,6 +102,35 @@ class EthereaMainWindowV3(QMainWindow):
         right_layout.addWidget(self.status_frame)
 
         main_layout.addLayout(right_layout, 2)
+
+    def _build_demo_steps(self) -> list[dict[str, str]]:
+        return [
+            {
+                "title": "Aurora Ring · Mood Canvas",
+                "description": "The aurora ring responds to focus, stress, and energy in real time, creating a living canvas for the session.",
+                "moment": "Breathing aura pulse",
+            },
+            {
+                "title": "Ethera Command Palette",
+                "description": "Natural-language commands route to workspace actions instantly, keeping the flow keyboard-first and cinematic.",
+                "moment": "Command shimmer",
+            },
+            {
+                "title": "Avatar Presence",
+                "description": "The EI avatar reflects your current mode and delivers crisp, focused guidance without overwhelming the workspace.",
+                "moment": "Soft halo focus",
+            },
+            {
+                "title": "Privacy-First Control",
+                "description": "All sensing stays local by default, with clear controls for enabling, pausing, or disabling optional inputs.",
+                "moment": "Guardian lock glow",
+            },
+            {
+                "title": "Demo-Ready Flow",
+                "description": "Switch workspaces, narrate decisions, and keep the audience oriented with guided cues and a live status readout.",
+                "moment": "Cinematic title card",
+            },
+        ]
 
     def populate_workspaces(self):
         """Fills the workspace selector with available workspaces."""
@@ -144,6 +177,18 @@ class EthereaMainWindowV3(QMainWindow):
             self.l_energy.setText(f"Energy: {float(e):.2f}")
 
         self.avatar.update_ei(vec)
+
+    def start_demo_mode(self) -> None:
+        self.demo_overlay.start()
+
+    def stop_demo_mode(self) -> None:
+        self.demo_overlay.stop()
+
+    def next_demo_step(self) -> None:
+        self.demo_overlay.next_step()
+
+    def prev_demo_step(self) -> None:
+        self.demo_overlay.prev_step()
 
     def _apply_workspace_ui_behavior(self, workspace_name: str):
         """Adjusts the UI's density and components based on the workspace behavior."""
