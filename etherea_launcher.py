@@ -64,6 +64,7 @@ from PySide6.QtWidgets import QApplication
 
 from corund.app_controller import AppController
 from corund.runtime_diagnostics import RuntimeDiagnostics
+from corund.perf import get_startup_timer
 from corund.ui.recovery_screen import RecoveryScreen
 
 
@@ -75,6 +76,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 def main() -> int:
+    timer = get_startup_timer()
+    timer.mark("launch")
     args = _parse_args(sys.argv[1:])
     if args.safe_mode:
         os.environ["ETHEREA_SAFE_MODE"] = "1"
@@ -96,6 +99,9 @@ def main() -> int:
         pass
 
     app = QApplication(sys.argv)
+    timer.mark("qt")
+    controller = AppController(app, safe_mode=args.safe_mode, diagnostics=diagnostics)
+    timer.mark("controller")
     controller = AppController(app, safe_mode=args.safe_mode, diagnostics=diagnostics)
 
     # Optional: make the default window feel more "app-like" (not tiny)

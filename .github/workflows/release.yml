@@ -46,6 +46,14 @@ jobs:
           dist\Etherea-$version-Windows.exe --self-test
           if (-Not (Test-Path "$env:ETHEREA_DATA_DIR\self_test_ok.txt")) { throw "Self-test marker missing." }
 
+      - name: Startup smoke (source launcher)
+        shell: pwsh
+        env:
+          ETHEREA_DATA_DIR: ${{ github.workspace }}\selftest
+          ETHEREA_PROFILE_STARTUP: "1"
+        run: |
+          python scripts/ci/startup_smoke.py
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
@@ -80,6 +88,13 @@ jobs:
       - name: Smoke test marker
         run: |
           test -f "${{ github.workspace }}/selftest/self_test_ok.txt"
+
+      - name: Startup smoke (source launcher)
+        env:
+          ETHEREA_DATA_DIR: ${{ github.workspace }}/selftest
+          ETHEREA_PROFILE_STARTUP: "1"
+        run: |
+          python scripts/ci/startup_smoke.py
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4

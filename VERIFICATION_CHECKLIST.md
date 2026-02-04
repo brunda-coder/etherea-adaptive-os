@@ -63,3 +63,8 @@ This document tracks the project's alignment with the "ETHEREA – THE LIVING AD
 - [ ] **No Placeholders:** All text and content are real or dynamically generated.
 - [ ] **Not Web-Only:** The primary product is a desktop application.
 - [ ] **No Cloud-Only Logic:** Core logic runs locally.
+
+## Startup Performance
+
+- [ ] **Profile Startup:** `ETHEREA_PROFILE_STARTUP=1 python etherea_launcher.py`
+- [ ] **Expected Result:** Window appears quickly with no 5s freeze; logs include `Startup profile:` timing output.
