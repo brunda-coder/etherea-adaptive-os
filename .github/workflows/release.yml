@@ -27,6 +27,16 @@ jobs:
           python -m pip install -r requirements.txt -r requirements-core.txt -r requirements-desktop.txt -r requirements-ui.txt
           python -m pip install pyinstaller
 
+      - name: Preflight checks
+        run: |
+          python -m compileall -q .
+          python scripts/ci/verify_packaging.py
+          python scripts/ci/repo_sanity.py
+
+      - name: Build Windows exe
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
       - name: Build Windows exe
         shell: pwsh
         run: |
@@ -41,6 +51,15 @@ jobs:
           ETHEREA_DATA_DIR: ${{ github.workspace }}\selftest
         run: |
           New-Item -ItemType Directory -Path $env:ETHEREA_DATA_DIR -Force | Out-Null
+          $version = "${{ steps.version.outputs.version }}"
+          dist\Etherea-$version-Windows.exe --self-test
+          if (-Not (Test-Path "$env:ETHEREA_DATA_DIR\self_test_ok.txt")) { throw "Self-test marker missing." }
+
+      - name: Expect artifacts
+        shell: pwsh
+        run: |
+          python scripts/ci/expect_artifacts.py --platform windows
+
           $version = "${{ github.ref_name }}"
           if ($version.StartsWith("v")) { $version = $version.Substring(1) }
           dist\Etherea-$version-Windows.exe --self-test
@@ -72,6 +91,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-core.txt
+            requirements-desktop.txt
+            requirements-ui.txt
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION="$(python -c 'from corund.version import __version__; print(__version__)')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "v$VERSION" != "${{ github.ref_name }}" ]]; then
+            echo "Tag does not match version ($VERSION)." >&2
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |
@@ -80,6 +115,28 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-core.txt -r requirements-desktop.txt -r requirements-ui.txt
           python -m pip install pyinstaller
+
+      - name: Preflight checks
+        run: |
+          python -m compileall -q .
+          python scripts/ci/verify_packaging.py
+          python scripts/ci/repo_sanity.py
+
+      - name: Build AppImage
+        run: |
+          bash scripts/build_linux.sh "${{ steps.version.outputs.version }}"
+
+      - name: Smoke test (self-test)
+        env:
+          ETHEREA_DATA_DIR: ${{ github.workspace }}/selftest
+        run: |
+          chmod +x "Etherea-${{ steps.version.outputs.version }}-Linux.AppImage"
+          QT_QPA_PLATFORM=offscreen "./Etherea-${{ steps.version.outputs.version }}-Linux.AppImage" --self-test
+          test -f "${{ github.workspace }}/selftest/self_test_ok.txt"
+
+      - name: Expect artifacts
+        run: |
+          python scripts/ci/expect_artifacts.py --platform linux
 
       - name: Build AppImage
         run: |

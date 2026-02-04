@@ -197,6 +197,13 @@ class AppController(QObject):
 
     def _init_voice_deferred(self) -> None:
         try:
+        try:
+            self._initialize_agentic_core()
+        except Exception as exc:
+            self.log(f"⚠️ Agentic core init failed: {exc}")
+
+    def _init_voice_deferred(self) -> None:
+        try:
             from corund.voice_engine import get_voice_engine
 
             self.voice_engine = get_voice_engine()

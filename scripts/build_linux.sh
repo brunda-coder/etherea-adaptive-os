@@ -17,6 +17,16 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt -r requirements-core.txt -r requirements-desktop.txt -r requirements-ui.txt
 python -m pip install pyinstaller
 
+if [[ -z "$VERSION" ]]; then
+  VERSION="$(python -c 'from corund.version import __version__; print(__version__)')"
+fi
+if [[ "$VERSION" == v* ]]; then
+  VERSION="${VERSION#v}"
+fi
+
+rm -rf build dist
+rm -f Etherea-*.AppImage
+
 pyinstaller --clean --noconfirm --onefile etherea.spec
 
 APPDIR="dist/AppDir"
@@ -48,6 +58,7 @@ export APPIMAGE_EXTRACT_AND_RUN=1
   -bundle-non-qt-libs \
   -unsupported-allow-new-glibc
 
+APPIMAGE_NAME="Etherea-${VERSION}-Linux.AppImage"
 APPIMAGE_NAME="Etherea-Linux.AppImage"
 if [[ -n "$VERSION" ]]; then
   APPIMAGE_NAME="Etherea-${VERSION}-Linux.AppImage"

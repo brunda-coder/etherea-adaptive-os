@@ -17,6 +17,11 @@ env/
 *.pyc
 *.pyo
 *.pyd
+*.exe
+*.AppImage
+*.msi
+*.dmg
+*.pkg
 
 # General
 .DS_Store
