@@ -2,6 +2,9 @@
 set -euo pipefail
 
 VERSION="${1:-}"
+if [[ "$VERSION" == v* ]]; then
+  VERSION="${VERSION#v}"
+fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -56,6 +59,10 @@ export APPIMAGE_EXTRACT_AND_RUN=1
   -unsupported-allow-new-glibc
 
 APPIMAGE_NAME="Etherea-${VERSION}-Linux.AppImage"
+APPIMAGE_NAME="Etherea-Linux.AppImage"
+if [[ -n "$VERSION" ]]; then
+  APPIMAGE_NAME="Etherea-${VERSION}-Linux.AppImage"
+fi
 
 mv Etherea-*.AppImage "$APPIMAGE_NAME"
 chmod +x "$APPIMAGE_NAME"

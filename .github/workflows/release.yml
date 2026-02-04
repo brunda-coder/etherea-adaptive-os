@@ -20,20 +20,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: |
-            requirements.txt
-            requirements-core.txt
-            requirements-desktop.txt
-            requirements-ui.txt
-
-      - name: Read version
-        id: version
-        shell: pwsh
-        run: |
-          $version = python -c "from corund.version import __version__; print(__version__)"
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag does not match version ($version)." }
 
       - name: Install dependencies
         run: |
@@ -51,6 +37,11 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
+      - name: Build Windows exe
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          if ($version.StartsWith("v")) { $version = $version.Substring(1) }
           pyinstaller --clean --noconfirm --onefile etherea.spec
           Move-Item -Force dist\Etherea.exe "dist\Etherea-$version-Windows.exe"
 
@@ -68,6 +59,11 @@ jobs:
         shell: pwsh
         run: |
           python scripts/ci/expect_artifacts.py --platform windows
+
+          $version = "${{ github.ref_name }}"
+          if ($version.StartsWith("v")) { $version = $version.Substring(1) }
+          dist\Etherea-$version-Windows.exe --self-test
+          if (-Not (Test-Path "$env:ETHEREA_DATA_DIR\self_test_ok.txt")) { throw "Self-test marker missing." }
 
       - name: Startup smoke (source launcher)
         shell: pwsh
@@ -141,6 +137,14 @@ jobs:
       - name: Expect artifacts
         run: |
           python scripts/ci/expect_artifacts.py --platform linux
+
+      - name: Build AppImage
+        run: |
+          bash scripts/build_linux.sh "${{ github.ref_name }}"
+
+      - name: Smoke test marker
+        run: |
+          test -f "${{ github.workspace }}/selftest/self_test_ok.txt"
 
       - name: Startup smoke (source launcher)
         env:

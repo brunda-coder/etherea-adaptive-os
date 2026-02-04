@@ -4,6 +4,10 @@ param(
     [string]$Version = ""
 )
 
+if ($Version.StartsWith("v")) {
+    $Version = $Version.Substring(1)
+}
+
 if (-Not (Test-Path ".venv")) {
     python -m venv .venv
 }
@@ -35,6 +39,11 @@ if (-Not (Test-Path $exePath)) {
 $target = "dist\Etherea-$Version-Windows.exe"
 Move-Item -Force $exePath $target
 $exePath = $target
+if ($Version -ne "") {
+    $target = "dist\Etherea-$Version-Windows.exe"
+    Move-Item -Force $exePath $target
+    $exePath = $target
+}
 
 $env:ETHEREA_DATA_DIR = "$(Get-Location)\selftest"
 & $exePath --self-test
