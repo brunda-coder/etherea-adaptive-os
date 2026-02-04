@@ -68,5 +68,5 @@ body {
   color: var(--text-dark);
   padding: 1rem;
   border-radius: 1rem;
-  margin-left: 1rem;
+  margin: 0;
 }
