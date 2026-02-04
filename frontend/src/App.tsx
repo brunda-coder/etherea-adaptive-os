@@ -7,6 +7,9 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [plan, setPlan] = useState(null);
   const [currentActionIndex, setCurrentActionIndex] = useState(0);
+  const [presenceNote, setPresenceNote] = useState(
+    "I'm here to guide you through the dashboard whenever you need me.",
+  );
 
   const isExplaining = plan && currentActionIndex < plan.actions.length;
   const currentAction = isExplaining ? plan.actions[currentActionIndex] : null;
@@ -72,6 +75,16 @@ const App = () => {
     }
   }, [currentAction]);
 
+  useEffect(() => {
+    const handlePresence = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      if (customEvent.detail?.message) {
+        setPresenceNote(customEvent.detail.message);
+      }
+    };
+    window.addEventListener("etherea:avatar-presence", handlePresence);
+    return () => window.removeEventListener("etherea:avatar-presence", handlePresence);
+  }, []);
 
   return (
     <div className="app-container">
@@ -102,9 +115,9 @@ const App = () => {
       )}
 
       <div className="explainer-avatar">
-         <AvatarLifeController isSpeaking={isExplaining} expression={plan?.expression} />
+        <AvatarLifeController isSpeaking={isExplaining} expression={plan?.expression} />
         <div className="avatar-bubble">
-            {isExplaining ? plan.say : "Hi! How can I help?"}
+          {isExplaining ? plan.say : presenceNote}
         </div>
       </div>
     </div>

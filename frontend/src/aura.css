@@ -22,6 +22,35 @@
   justify-content: center;
 }
 
+.explainer-avatar {
+  --avatar-x: 32px;
+  --avatar-y: 320px;
+  --avatar-tilt: 0deg;
+  --avatar-peek: 0px;
+  --avatar-scale: 1;
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transform: translate3d(var(--avatar-x), var(--avatar-y), 0)
+    translateX(var(--avatar-peek)) rotate(var(--avatar-tilt)) scale(var(--avatar-scale));
+  transform-origin: center;
+  z-index: 20;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.explainer-avatar[data-avatar-orient="right"] {
+  flex-direction: row-reverse;
+}
+
+.explainer-avatar .avatar-bubble {
+  max-width: 240px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
 .avatar-head {
   position: relative;
   display: grid;
