@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Etherea
+Comment=Etherea – The Living Adaptive OS
+Exec=Etherea
+Icon=Etherea
+Categories=Utility;AI;
+Terminal=false

@@ -7,9 +7,13 @@ except Exception:
     np = None  # optional on Termux/CI
 from datetime import datetime
 
+from corund.app_runtime import user_data_dir
+
 
 class Database:
-    def __init__(self, db_path="data/etherea.db"):
+    def __init__(self, db_path: str | None = None):
+        if db_path is None:
+            db_path = str(user_data_dir() / "etherea.db")
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         # Ensure connection uses check_same_thread=False safely
