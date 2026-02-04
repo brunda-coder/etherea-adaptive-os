@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
-import { CandyButton, CandyCard, CandySpotlightOverlay, AuroraRing } from "./components/candy/Candy";
+import { useState, useEffect } from "react";
+import { CandyButton, CandyCard, CandySpotlightOverlay } from "./components/candy/Candy";
 import "./aura.css"; // Assuming base styles are in here
+import { AvatarLifeController } from "./components/avatar/AvatarLifeController";
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -101,7 +102,7 @@ const App = () => {
       )}
 
       <div className="explainer-avatar">
-         <AuroraRing isSpeaking={isExplaining} expression={plan?.expression} />
+         <AvatarLifeController isSpeaking={isExplaining} expression={plan?.expression} />
         <div className="avatar-bubble">
             {isExplaining ? plan.say : "Hi! How can I help?"}
         </div>
