@@ -5,6 +5,8 @@ import threading
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
+import os
+
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication
 
@@ -27,6 +29,8 @@ from corund.aurora_state import AuroraStateStore
 from corund.aurora_pipeline import AuroraDecisionPipeline
 from corund.os_adapter import OSAdapter
 from corund.os_pipeline import OSPipeline
+from corund.resource_manager import ResourceManager
+from corund.runtime_diagnostics import RuntimeDiagnostics
 
 if TYPE_CHECKING:
     from corund.voice_engine import VoiceEngine
@@ -35,10 +39,18 @@ from corund.voice_engine import get_voice_engine
 
 
 class AppController(QObject):
-    def __init__(self, app: QApplication | None = None) -> None:
+    def __init__(
+        self,
+        app: QApplication | None = None,
+        *,
+        safe_mode: bool = False,
+        diagnostics: RuntimeDiagnostics | None = None,
+    ) -> None:
         super().__init__()
         self.app = app
-        self._log_path = Path(user_data_dir()) / "etherea.log"
+        self.safe_mode = safe_mode
+        self.diagnostics = diagnostics
+        self._log_path = ResourceManager.logs_dir() / "etherea.log"
 
         # --- Agentic Core Threading ---
         self._async_loop: asyncio.AbstractEventLoop | None = None
@@ -136,22 +148,30 @@ class AppController(QObject):
         self._heartbeat.start()
         self.log("✅ EI Engine started.")
 
-        self._initialize_agentic_core()
+        if self.safe_mode:
+            self.log("🛟 Safe Mode enabled: skipping agentic core + voice engine.")
+            os.environ["ETHEREA_DISABLE_SENSORS"] = "1"
+            from corund.ui.theme import get_theme_manager
+
+            get_theme_manager().set_accessibility(reduced_motion=True, minimal_mode=True, quiet_mode=True)
+        else:
+            self._initialize_agentic_core()
 
         # Set the initial workspace in the global state
         initial_workspace = self.workspace_registry.get_current()
         if initial_workspace:
             self.switch_workspace(initial_workspace.name)
 
-        try:
-            self.voice_engine = get_voice_engine()
-            if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
-                self.voice_engine.start_command_loop()
-                self.log("✅ Voice engine started.")
-            else:
-                self.log("🔇 Voice engine unavailable (no mic or missing deps).")
-        except Exception as exc:
-            self.log(f"⚠️ Voice engine init failed: {exc}")
+        if not self.safe_mode:
+            try:
+                self.voice_engine = get_voice_engine()
+                if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
+                    self.voice_engine.start_command_loop()
+                    self.log("✅ Voice engine started.")
+                else:
+                    self.log("🔇 Voice engine unavailable (no mic or missing deps).")
+            except Exception as exc:
+                self.log(f"⚠️ Voice engine init failed: {exc}")
 
         self.window.show()
 

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
 from corund.ui.juicy_button import JuicyChipButton, JuicyIconButton
 from corund.ui.theme import get_theme_manager
+from corund.resource_manager import ResourceManager
 
 
 class AvatarFaceWidget(QFrame):
@@ -24,7 +25,7 @@ class AvatarFaceWidget(QFrame):
         self._timer.start()
 
     def _load_face(self) -> QPixmap | None:
-        path = pathlib.Path("assets/avatar/face_idle.webp")
+        path = pathlib.Path(ResourceManager.resolve_path("assets/avatar/face_idle.webp"))
         if not path.exists():
             return None
         pm = QPixmap(str(path))
