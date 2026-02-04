@@ -1,24 +1,27 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QLabel,
-    QTextEdit,
-    QPushButton,
-    QFrame,
     QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Slot
 
-from corund.ui.command_palette import CommandPalette
-from corund.ui.demo_mode_overlay import DemoModeOverlay
-from corund.ui.avatar_heroine_widget import AvatarHeroineWidget
-from corund.ui.aurora_canvas_widget import AuroraCanvasWidget
+from corund.ui.aurora_bar import AuroraBar
+from corund.ui.avatar_panel import AvatarPanel
+from corund.ui.demo_mode_panel import DemoModePanel
+from corund.ui.ethera_dock import EtheraDock
+from corund.ui.focus_canvas import FocusCanvas
+from corund.ui.settings_privacy_widget import SettingsPrivacyWidget
+from corund.ui.status_ribbon import StatusRibbon
+from corund.ui.theme import get_theme_manager
+from corund.workspace_behaviors import WORKSPACE_BEHAVIORS
 from corund.workspace_registry import WorkspaceType
-from corund.workspace_behaviors import WORKSPACE_BEHAVIORS, UIDensity
 
 
 class EthereaMainWindowV3(QMainWindow):
@@ -26,111 +29,68 @@ class EthereaMainWindowV3(QMainWindow):
         super().__init__()
         self.app_controller = app_controller
         self.setWindowTitle("Etherea OS")
-        self.resize(1200, 720)
+        self.resize(1280, 780)
 
         root = QWidget()
         self.setCentralWidget(root)
 
-        main_layout = QHBoxLayout(root)
-        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout = QVBoxLayout(root)
+        main_layout.setContentsMargins(16, 16, 16, 16)
         main_layout.setSpacing(12)
 
-        # Left side: Workspace, Command and Avatar
-        left_layout = QVBoxLayout()
-        left_layout.setSpacing(10)
+        self.aurora_bar = AuroraBar()
+        self.aurora_bar.search.returnPressed.connect(
+            lambda: self.execute_user_command(self.aurora_bar.search.text())
+        )
+        main_layout.addWidget(self.aurora_bar)
+
+        mid_row = QHBoxLayout()
+        mid_row.setSpacing(12)
+
+        self.avatar_panel = AvatarPanel()
+        mid_row.addWidget(self.avatar_panel, 1)
+
+        center_col = QVBoxLayout()
+        center_col.setSpacing(12)
 
         self.workspace_selector = QComboBox()
-        self.workspace_selector.setStyleSheet(
-            "QComboBox { background-color: #1a1b26; color: white; border-radius: 8px; padding: 8px; }"
-        )
         self.populate_workspaces()
         self.workspace_selector.currentTextChanged.connect(self.on_workspace_selected)
-        left_layout.addWidget(self.workspace_selector)
+        center_col.addWidget(self.workspace_selector)
 
-        self.command_palette = CommandPalette()
-        self.command_palette.submitted.connect(self.execute_user_command)
-        left_layout.addWidget(self.command_palette)
+        self.center_stack = QStackedWidget()
+        self.focus_canvas = FocusCanvas()
+        self.settings_panel = SettingsPrivacyWidget()
+        self.demo_panel = DemoModePanel()
+        self.center_stack.addWidget(self.focus_canvas)
+        self.center_stack.addWidget(self.settings_panel)
+        self.center_stack.addWidget(self.demo_panel)
+        center_col.addWidget(self.center_stack, 3)
 
-        self.avatar = AvatarHeroineWidget()
-        self.avatar.setStyleSheet(
-            "QWidget { background: #0b0b12; border-radius: 18px; }"
-        )
-        left_layout.addWidget(self.avatar, 1)
+        mid_row.addLayout(center_col, 2)
 
-        main_layout.addLayout(left_layout, 1)
+        self.ethera_dock = EtheraDock()
+        self.ethera_dock.command_palette.submitted.connect(self.execute_user_command)
+        mid_row.addWidget(self.ethera_dock, 1)
 
-        # Right side: Aurora, Console, and Status
-        right_layout = QVBoxLayout()
-        right_layout.setSpacing(10)
+        main_layout.addLayout(mid_row, 1)
 
-        self.demo_overlay = DemoModeOverlay(steps=self._build_demo_steps())
-        right_layout.addWidget(self.demo_overlay)
+        self.status_ribbon = StatusRibbon()
+        main_layout.addWidget(self.status_ribbon)
 
-        self.title = QLabel("Etherea Console")
-        self.title.setStyleSheet("font-size:18px; font-weight:700; color:white;")
-        right_layout.addWidget(self.title)
+        self._bind_shortcuts()
+        get_theme_manager().theme_changed.connect(self._on_theme_changed)
+        self._apply_accessibility_mode()
 
-        self.aurora_canvas = AuroraCanvasWidget()
-        right_layout.addWidget(self.aurora_canvas)
-
-        self.console = QTextEdit()
-        self.console.setReadOnly(True)
-        self.console.setStyleSheet(
-            "QTextEdit { background:#11121a; color:#e8e8ff; border:1px solid #22243a;"
-            "border-radius:14px; padding:10px; font-family:monospace; font-size:13px; }"
-        )
-        right_layout.addWidget(self.console, 1)
-
-        self.status_frame = QFrame()
-        self.status_frame.setStyleSheet(
-            "QFrame { background:#101018; border:1px solid #1f2135; border-radius:16px; padding:10px; }"
-            "QLabel { color:#dcdcff; font-size:13px; }"
-        )
-        status_layout = QVBoxLayout(self.status_frame)
-
-        self.l_mode = QLabel("Workspace: --")
-        self.l_focus = QLabel("Focus: --")
-        self.l_stress = QLabel("Stress: --")
-        self.l_energy = QLabel("Energy: --")
-        self.l_timer = QLabel("Focus timer: --")
-
-        status_layout.addWidget(self.l_mode)
-        status_layout.addWidget(self.l_timer)
-        status_layout.addWidget(self.l_focus)
-        status_layout.addWidget(self.l_stress)
-        status_layout.addWidget(self.l_energy)
-        right_layout.addWidget(self.status_frame)
-
-        main_layout.addLayout(right_layout, 2)
-
-    def _build_demo_steps(self) -> list[dict[str, str]]:
-        return [
-            {
-                "title": "Aurora Ring · Mood Canvas",
-                "description": "The aurora ring responds to focus, stress, and energy in real time, creating a living canvas for the session.",
-                "moment": "Breathing aura pulse",
-            },
-            {
-                "title": "Ethera Command Palette",
-                "description": "Natural-language commands route to workspace actions instantly, keeping the flow keyboard-first and cinematic.",
-                "moment": "Command shimmer",
-            },
-            {
-                "title": "Avatar Presence",
-                "description": "The EI avatar reflects your current mode and delivers crisp, focused guidance without overwhelming the workspace.",
-                "moment": "Soft halo focus",
-            },
-            {
-                "title": "Privacy-First Control",
-                "description": "All sensing stays local by default, with clear controls for enabling, pausing, or disabling optional inputs.",
-                "moment": "Guardian lock glow",
-            },
-            {
-                "title": "Demo-Ready Flow",
-                "description": "Switch workspaces, narrate decisions, and keep the audience oriented with guided cues and a live status readout.",
-                "moment": "Cinematic title card",
-            },
-        ]
+    def _bind_shortcuts(self) -> None:
+        QShortcut(QKeySequence("Ctrl+K"), self, activated=self._focus_command)
+        QShortcut(QKeySequence("Esc"), self, activated=self._close_overlays)
+        QShortcut(QKeySequence("Ctrl+1"), self, activated=lambda: self.center_stack.setCurrentWidget(self.focus_canvas))
+        QShortcut(QKeySequence("Ctrl+2"), self, activated=lambda: self.center_stack.setCurrentWidget(self.settings_panel))
+        QShortcut(QKeySequence("Ctrl+3"), self, activated=lambda: self.center_stack.setCurrentWidget(self.demo_panel))
+        QShortcut(QKeySequence("Ctrl+Shift+D"), self, activated=lambda: self.center_stack.setCurrentWidget(self.demo_panel))
+        QShortcut(QKeySequence("Ctrl+Shift+P"), self, activated=lambda: self.center_stack.setCurrentWidget(self.settings_panel))
+        QShortcut(QKeySequence("Ctrl+Shift+M"), self, activated=self._toggle_reduced_motion)
 
     def populate_workspaces(self):
         """Fills the workspace selector with available workspaces."""
@@ -150,9 +110,9 @@ class EthereaMainWindowV3(QMainWindow):
     @Slot(str)
     def on_workspace_changed(self, workspace_name: str):
         """Updates the UI when the workspace changes."""
-        self.l_mode.setText(f"Workspace: {workspace_name}")
         if self.workspace_selector.currentText() != workspace_name:
             self.workspace_selector.setCurrentText(workspace_name)
+        self.status_ribbon.workspace_mode.setText(f"Workspace · {workspace_name}")
         self._apply_workspace_ui_behavior(workspace_name)
 
     @Slot(str)
@@ -161,7 +121,7 @@ class EthereaMainWindowV3(QMainWindow):
 
     @Slot(str)
     def log_ui(self, msg: str):
-        self.console.append(msg)
+        self.ethera_dock.intent_card.setToolTip(msg)
 
     @Slot(dict)
     def on_emotion_updated(self, vec: dict):
@@ -170,25 +130,13 @@ class EthereaMainWindowV3(QMainWindow):
         e = vec.get("energy")
 
         if isinstance(f, (int, float)):
-            self.l_focus.setText(f"Focus: {float(f):.2f}")
-        if isinstance(s, (int, float)):
-            self.l_stress.setText(f"Stress: {float(s):.2f}")
-        if isinstance(e, (int, float)):
-            self.l_energy.setText(f"Energy: {float(e):.2f}")
+            self.status_ribbon.focus_timer.setText(f"Focus · {float(f):.2f}")
+        if isinstance(s, (int, float)) and s > 0.6:
+            self.aurora_bar.status.setText("Aurora · Stress")
+        if isinstance(e, (int, float)) and e < 0.3:
+            self.aurora_bar.status.setText("Aurora · Low Energy")
 
-        self.avatar.update_ei(vec)
-
-    def start_demo_mode(self) -> None:
-        self.demo_overlay.start()
-
-    def stop_demo_mode(self) -> None:
-        self.demo_overlay.stop()
-
-    def next_demo_step(self) -> None:
-        self.demo_overlay.next_step()
-
-    def prev_demo_step(self) -> None:
-        self.demo_overlay.prev_step()
+        self.avatar_panel.update_ei(vec)
 
     def _apply_workspace_ui_behavior(self, workspace_name: str):
         """Adjusts the UI's density and components based on the workspace behavior."""
@@ -196,23 +144,39 @@ class EthereaMainWindowV3(QMainWindow):
         if not behavior:
             return
 
-        self.l_mode.setText(f"Workspace: {workspace_name}")
-        self.avatar.set_mode_persona(workspace_name)
-
         ui_density = behavior.get("ui_density", "standard")
 
         if ui_density == "minimal":
-            self.aurora_canvas.setVisible(False)
-            self.console.setVisible(False)
-            self.status_frame.setVisible(False)
-            self.title.setVisible(False)
+            self.ethera_dock.setVisible(False)
+            self.avatar_panel.setVisible(False)
         elif ui_density == "dense":
-            self.aurora_canvas.setVisible(True)
-            self.console.setVisible(True)
-            self.status_frame.setVisible(True)
-            self.title.setVisible(True)
-        else: # Standard
-            self.aurora_canvas.setVisible(True)
-            self.console.setVisible(True)
-            self.status_frame.setVisible(True)
-            self.title.setVisible(True)
+            self.ethera_dock.setVisible(True)
+            self.avatar_panel.setVisible(True)
+        else:
+            self.ethera_dock.setVisible(True)
+            self.avatar_panel.setVisible(True)
+
+    def _focus_command(self) -> None:
+        self.ethera_dock.command_palette.input.setFocus()
+
+    def _close_overlays(self) -> None:
+        self.center_stack.setCurrentWidget(self.focus_canvas)
+
+    def _toggle_reduced_motion(self) -> None:
+        theme = get_theme_manager()
+        theme.set_accessibility(reduced_motion=not theme.reduced_motion)
+
+    def _on_theme_changed(self) -> None:
+        if self.app_controller.app is not None:
+            get_theme_manager().apply_to(self.app_controller.app)
+        self._apply_accessibility_mode()
+        self.update()
+
+    def _apply_accessibility_mode(self) -> None:
+        theme = get_theme_manager()
+        if theme.minimal_mode:
+            self.ethera_dock.setVisible(False)
+            self.avatar_panel.setVisible(False)
+        else:
+            self.ethera_dock.setVisible(True)
+            self.avatar_panel.setVisible(True)

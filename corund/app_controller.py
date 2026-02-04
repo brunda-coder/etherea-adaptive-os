@@ -35,7 +35,7 @@ from corund.voice_engine import get_voice_engine
 
 
 class AppController(QObject):
-    def __init__(self, app: QApplication) -> None:
+    def __init__(self, app: QApplication | None = None) -> None:
         super().__init__()
         self.app = app
         self._log_path = Path(user_data_dir()) / "etherea.log"
@@ -73,6 +73,14 @@ class AppController(QObject):
         self._heartbeat.setInterval(250)
         self._heartbeat.timeout.connect(self._tick)
 
+    def initialize(self) -> None:
+        """Initializes UI theming and starts core services."""
+        from corund.ui.theme import get_theme_manager
+
+        if self.app is not None:
+            get_theme_manager().apply_to(self.app)
+        self.start()
+
     def _connect_signals(self) -> None:
         signals.emotion_updated.connect(self.window.on_emotion_updated)
         signals.system_log.connect(self.window.log_ui)
@@ -83,7 +91,7 @@ class AppController(QObject):
     def _tick(self) -> None:
         # Sync aurora state with the UI
         current_workspace = self.workspace_registry.get_current()
-        emotion_tag = getattr(self.window.avatar, "emotion_tag", "calm")
+        emotion_tag = getattr(self.window.avatar_panel, "emotion_tag", "calm")
         self.aurora_state_store.update(
             workspace_id=current_workspace.workspace_id if current_workspace else None,
             workspace_name=current_workspace.name if current_workspace else None,

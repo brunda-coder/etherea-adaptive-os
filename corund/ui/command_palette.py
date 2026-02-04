@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit
 from PySide6.QtCore import Signal
+
+from corund.ui.juicy_button import JuicyButton
 
 
 class CommandPalette(QWidget):
@@ -14,7 +16,7 @@ class CommandPalette(QWidget):
         self.input = QLineEdit()
         self.input.setPlaceholderText(placeholder)
 
-        self.btn = QPushButton("Run")
+        self.btn = JuicyButton("Run", variant="primary")
 
         row = QHBoxLayout(self)
         row.setContentsMargins(8, 8, 8, 8)
