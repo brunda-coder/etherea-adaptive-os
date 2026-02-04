@@ -174,6 +174,7 @@ class AppController(QObject):
             get_theme_manager().set_accessibility(reduced_motion=True, minimal_mode=True, quiet_mode=True)
         else:
             QTimer.singleShot(0, self._init_agentic_deferred)
+            self._initialize_agentic_core()
 
         # Set the initial workspace in the global state
         initial_workspace = self.workspace_registry.get_current()
@@ -208,6 +209,16 @@ class AppController(QObject):
             self.log(f"⚠️ Voice engine init failed: {exc}")
         get_startup_timer().mark("voice")
         self._log_startup_profile()
+        if not self.safe_mode:
+            try:
+                self.voice_engine = get_voice_engine()
+                if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
+                    self.voice_engine.start_command_loop()
+                    self.log("✅ Voice engine started.")
+                else:
+                    self.log("🔇 Voice engine unavailable (no mic or missing deps).")
+            except Exception as exc:
+                self.log(f"⚠️ Voice engine init failed: {exc}")
 
     def _log_startup_profile(self) -> None:
         if self._profile_logged:
