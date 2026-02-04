@@ -1,29 +1,27 @@
-
 # --- Termux/CI-safe numpy optional ---
 import importlib.util as _importlib_util
 NUMPY_AVAILABLE = _importlib_util.find_spec("numpy") is not None
 if NUMPY_AVAILABLE:
     import numpy as np  # type: ignore
 
+
 def _require_numpy() -> None:
     if not NUMPY_AVAILABLE:
         raise RuntimeError("numpy not installed; feature unavailable on Termux/CI-safe mode")
 # --- end numpy guard ---
+
 import os
 import json
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
+
+import requests
 
 try:
     from dotenv import load_dotenv
 except Exception:
     def load_dotenv(*args, **kwargs):
         return False
-
-try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
 
 from corund.database import db
 
@@ -35,33 +33,43 @@ class AvatarEngine:
     """
     AvatarEngine handles natural-language interaction for the Etherea avatar.
 
-    Features / Fixes:
-    - Loads environment variables safely.
-    - Retrieves OpenAI API key with error handling.
-    - Handles DB returning None or malformed memories/profiles.
-    - Safely extracts text from the OpenAI SDK response.
-    - Validates JSON output; returns fallback JSON on failure.
+    This repo (zip you uploaded) previously used OpenAI. This version:
+      - Uses Gemini REST (generativelanguage.googleapis.com) when GEMINI_API_KEY exists
+      - Never hard-crashes when a key is missing (AI becomes "offline")
+      - Returns JSON string (or fallback JSON) to keep UI stable
+
+    Notes:
+      - This does NOT do TTS (voice) — only text generation.
+      - Deployment/build should work even with no API key.
     """
 
     def __init__(self, key_password: Optional[str] = None):
-        """
-        Initialize AvatarEngine.
-        - key_password: kept for signature compatibility (unused)
-        """
+        # key_password kept for signature compatibility (unused)
         self._api_key = self._get_api_key()
-        self.client = OpenAI(api_key=self._api_key)
 
-    def _get_api_key(self, password: Optional[str] = None) -> str:
+        # Model can be overridden without touching code.
+        # Docs examples often use gemini-2.0-flash.
+        self._model = (os.getenv("GEMINI_MODEL") or os.getenv("ETHEREA_GEMINI_MODEL") or "gemini-2.0-flash").strip()
+
+        # If key is missing, we stay in offline mode.
+        self._enabled = bool(self._api_key)
+
+    def _get_api_key(self, password: Optional[str] = None) -> Optional[str]:
         """
-        Retrieve the OpenAI API key from environment variables.
-        Raises RuntimeError if missing.
+        Retrieve Gemini API key from environment variables.
+        Returns None if missing (AI disabled instead of crashing).
         """
-        key = (os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY2"))
+        # User asked to switch away from OPENAI_* to GEMINI_*.
+        key = (
+            os.getenv("GEMINI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GOOGLE_GENAI_API_KEY")
+        )
         if key:
             return key.strip()
-        raise RuntimeError("OPENAI_API_KEY or OPENAI_API_KEY2 environment variable is not set")
+        return None
 
-    def _safe_join_memories(self, memories):
+    def _safe_join_memories(self, memories) -> str:
         if not memories:
             return "None yet."
         try:
@@ -82,21 +90,73 @@ class AvatarEngine:
         except Exception:
             return "None yet."
 
-    def _safe_profile_str(self, profile):
+    def _safe_profile_str(self, profile: Dict[str, Any]) -> str:
         if not profile:
-            return "None yet."
+            return "None."
         try:
-            if isinstance(profile, dict):
-                return "\n".join(f"- {k}: {v}" for k, v in profile.items())
-            return str(profile)
+            return json.dumps(profile, ensure_ascii=False, indent=2)
         except Exception:
-            return "None yet."
+            return str(profile)
+
+    def _gemini_generate(self, system_prompt: str, user_text: str) -> str:
+        """
+        Calls Gemini generateContent via REST.
+
+        Endpoint format (per Gemini API docs):
+          POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key=API_KEY
+        """
+        if not self._api_key:
+            raise RuntimeError("GEMINI_API_KEY is not set")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent"
+        params = {"key": self._api_key}
+
+        payload = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [
+                {"role": "user", "parts": [{"text": user_text}]}
+            ],
+            "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 700,
+            },
+        }
+
+        r = requests.post(url, params=params, json=payload, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+
+        # Try the common response shape: candidates[0].content.parts[0].text
+        try:
+            candidates = data.get("candidates") or []
+            if candidates:
+                content = candidates[0].get("content") or {}
+                parts = content.get("parts") or []
+                if parts:
+                    text = parts[0].get("text")
+                    if isinstance(text, str):
+                        return text.strip()
+        except Exception:
+            pass
+
+        # Fallback: stringify full response (debuggable)
+        return json.dumps(data, ensure_ascii=False)
 
     def speak(self, user_text: str, emotion_tag: Optional[str] = None, **_kwargs) -> str:
         """
         Send a prompt to the model enriched with memory, profile, and system context.
-        Returns JSON string. Returns fallback JSON on any internal errors.
+        Returns a JSON string (or fallback JSON).
         """
+        # If AI disabled, keep the app alive and cinematic.
+        if not self._enabled:
+            offline = {
+                "response": "AI is offline (no GEMINI_API_KEY configured). UI + expressions still work.",
+                "command": None,
+                "save_memory": None,
+                "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0},
+            }
+            return json.dumps(offline, ensure_ascii=False)
+
         # Fetch memory & profile context
         try:
             memories = db.get_recent_memories(limit=5) or []
@@ -137,46 +197,29 @@ class AvatarEngine:
         )
 
         try:
-            resp = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_text}
-                ],
-                temperature=0.7,
-                max_tokens=700
-            )
-
-            # Safe content extraction
-            content = None
-            try:
-                content = getattr(resp.choices[0].message, "content", None)
-            except Exception:
-                pass
-
-            if content is None:
-                try:
-                    content = resp["choices"][0]["message"]["content"]
-                except Exception:
-                    content = str(resp)
-
-            content = content.strip()
+            content = self._gemini_generate(system_prompt=system_prompt, user_text=user_text)
+            content = (content or "").strip()
 
             # Validate JSON
             try:
                 parsed = json.loads(content)
                 return json.dumps(parsed, ensure_ascii=False)
             except json.JSONDecodeError:
-                logger.warning(
-                    "Model output not valid JSON; returning raw text.")
-                return content
+                # If model returns non-JSON, wrap into JSON so UI isn't confused
+                wrapped = {
+                    "response": content,
+                    "command": None,
+                    "save_memory": None,
+                    "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0},
+                }
+                return json.dumps(wrapped, ensure_ascii=False)
 
         except Exception as e:
-            logger.exception("AvatarEngine API call failed: %s", e)
+            logger.exception("AvatarEngine Gemini call failed: %s", e)
             fallback = {
-                "response": f"I encountered an error while generating a reply: {str(e)}",
+                "response": f"AI error: {str(e)}",
                 "command": None,
                 "save_memory": None,
-                "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0}
+                "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0},
             }
             return json.dumps(fallback, ensure_ascii=False)

@@ -21,104 +21,57 @@ class TutorialFlow:
         """
         # Core systems
         self.memory = MemoryStore()  # MemoryStore uses global SQLite by default
-        self.avatar = AvatarEngine(key_password=avatar_password)
+        try:
+            self.avatar = AvatarEngine(key_password=avatar_password)
+        except Exception as e:
+            debug_print("TutorialFlow", f"AvatarEngine init failed (AI disabled): {e}")
+            self.avatar = None
         self.docs_loader = MDLoader(docs_folder)
         # { "topic/file.md": "content..." }
-        self.docs = self.docs_loader.load_all()
+        self.docs_cache = {}
 
-        # Tutorial steps
-        self.steps = []
-        self.current_step = 0
+    def load_docs(self, topic_file: str):
+        """
+        Load tutorial markdown doc into memory.
+        """
+        if topic_file in self.docs_cache:
+            return self.docs_cache[topic_file]
 
-        # Load or initialize tutorial state
-        tutorial_state = self.memory.get_all_preferences().get("tutorial_state")
-        if tutorial_state:
-            try:
-                self.tutorial_state = tutorial_state
-                self.current_step = self.tutorial_state.get("current_step", 0)
-            except Exception:
-                self.tutorial_state = {"current_step": 0}
-                self.current_step = 0
+        content = self.docs_loader.load_file(topic_file)
+        self.docs_cache[topic_file] = content
+        return content
+
+    def run_step(self, topic_file: str, user_input: str):
+        """
+        Execute a tutorial step based on a topic file and user response.
+        """
+        doc = self.load_docs(topic_file)
+
+        prompt = f"""
+You are guiding a user through an Etherea tutorial.
+Here is the tutorial content:
+{doc}
+
+User input:
+{user_input}
+
+Reply as Etherea in 1-2 short paragraphs.
+"""
+
+        # Generate response from AvatarEngine (optional)
+        if self.avatar is None:
+            response = "AI is offline (no GEMINI_API_KEY configured). Tutorial can continue without AI."
         else:
-            self.tutorial_state = {"current_step": 0}
-
-    # --- Step Management ---
-
-    def add_step(self, step_fn):
-        """Add a function representing a tutorial step"""
-        self.steps.append(step_fn)
-
-    def next_step(self):
-        """Execute next step and update memory"""
-        if self.current_step < len(self.steps):
             try:
-                self.steps[self.current_step]()
+                response = self.avatar.speak(prompt)
             except Exception as e:
-                debug_print("TutorialFlow", f"Step execution error: {e}")
-            self.current_step += 1
-            self._save_state()
-        else:
-            debug_print("TutorialFlow", "Tutorial finished!")
+                debug_print("TutorialFlow", f"AvatarEngine error: {e}")
+                response = "AI is offline or encountered an error."
 
-    def reset(self):
-        """Reset tutorial flow"""
-        self.current_step = 0
-        self._save_state()
-
-    def _save_state(self):
-        """Save tutorial state to memory"""
-        self.memory.update_preference(
-            "tutorial_state", {"current_step": self.current_step})
-
-    # --- Dynamic Data Injection ---
-
-    def ask_bot(self, user_text: str) -> str:
-        """
-        Sends user input to AvatarEngine (Etherea AI)
-        Optionally prepends docs knowledge from MDLoader
-        """
-        # Combine loaded docs into one context string
-        docs_context = "\n".join(self.docs.values())
-        prompt = f"Use the following Etherea docs to respond:\n{docs_context}\n\nUser: {user_text}"
-
-        # Generate response from AvatarEngine
+        # Save memory of this step
         try:
-            response = self.avatar.speak(prompt)
+            self.memory.save_step(topic_file, user_input, response)
         except Exception as e:
-            debug_print("TutorialFlow", f"AvatarEngine error: {e}")
-            response = "Etherea encountered an internal error."
-
-        # Update memory with last interaction
-        try:
-            interactions = self.memory.get_all_preferences().get("interactions", [])
-            interactions.append({"user": user_text, "bot": response})
-            self.memory.update_preference("interactions", interactions)
-        except Exception as e:
-            debug_print("TutorialFlow", f"Memory update error: {e}")
+            debug_print("TutorialFlow", f"Failed to save step memory: {e}")
 
         return response
-
-    # --- Utility Functions ---
-
-    def list_docs(self):
-        """Return list of loaded docs"""
-        return list(self.docs.keys())
-
-    def get_doc(self, doc_key: str) -> str:
-        """Return content of a specific doc"""
-        return self.docs.get(doc_key, "")
-
-    def check_triggers(self, context: dict) -> str:
-        """
-        Evaluate rules for showing pop-ups.
-        Returns a tutorial message or None.
-        """
-        # Rule 1: First launch
-        if self.current_step == 0 and context.get("startup", False):
-            return "Welcome to Etherea. I am your operating system. How may I assist you today?"
-
-        # Rule 2: High stress
-        if context.get("stress", 0) > 0.8:
-            return "I notice signs of stress. Would you like to enable Focus Mode?"
-        
-        return None
