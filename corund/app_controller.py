@@ -2,18 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
+
+import os
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication
 
-# --- Etherea Core Agentic Architecture ---
-from corund.policy_engine import policy_engine
-from corund.system_tools import register_system_tools
-from corund.tool_router import tool_router
 from corund.state import get_state
-# --- End Etherea Core ---
 
 from corund.app_runtime import user_data_dir
 from corund.ei_engine import EIEngine
@@ -27,18 +25,27 @@ from corund.aurora_state import AuroraStateStore
 from corund.aurora_pipeline import AuroraDecisionPipeline
 from corund.os_adapter import OSAdapter
 from corund.os_pipeline import OSPipeline
+from corund.resource_manager import ResourceManager
+from corund.runtime_diagnostics import RuntimeDiagnostics
+from corund.perf import get_startup_timer, log_startup_report
 
 if TYPE_CHECKING:
     from corund.voice_engine import VoiceEngine
 
-from corund.voice_engine import get_voice_engine
-
 
 class AppController(QObject):
-    def __init__(self, app: QApplication | None = None) -> None:
+    def __init__(
+        self,
+        app: QApplication | None = None,
+        *,
+        safe_mode: bool = False,
+        diagnostics: RuntimeDiagnostics | None = None,
+    ) -> None:
         super().__init__()
         self.app = app
-        self._log_path = Path(user_data_dir()) / "etherea.log"
+        self.safe_mode = safe_mode
+        self.diagnostics = diagnostics
+        self._log_path = ResourceManager.logs_dir() / "etherea.log"
 
         # --- Agentic Core Threading ---
         self._async_loop: asyncio.AbstractEventLoop | None = None
@@ -63,6 +70,9 @@ class AppController(QObject):
             log_cb=self.log,
         )
         self.voice_engine: Optional["VoiceEngine"] = None
+        self._agentic_timer: QTimer | None = None
+        self._agentic_started_at: float | None = None
+        self._profile_logged = False
 
         # UI
         self.window = EthereaMainWindowV3(self)
@@ -117,33 +127,77 @@ class AppController(QObject):
     def _initialize_agentic_core(self):
         """Initializes and starts the agentic components."""
         self.log("🚀 Initializing Etherea's agentic core...")
-        
+
         self._async_thread = threading.Thread(target=self._run_async_loop, daemon=True)
         self._async_thread.start()
-        
-        if not self._loop_started.wait(timeout=5):
-            self.log("❌ CRITICAL: Asyncio event loop failed to start.")
+        self._agentic_started_at = time.monotonic()
+
+        if self._agentic_timer is None:
+            self._agentic_timer = QTimer(self)
+            self._agentic_timer.setInterval(50)
+            self._agentic_timer.timeout.connect(self._poll_agentic_ready)
+        self._agentic_timer.start()
+
+    def _poll_agentic_ready(self) -> None:
+        if self._loop_started.is_set():
+            if self._agentic_timer is not None:
+                self._agentic_timer.stop()
+            try:
+                from corund.system_tools import register_system_tools
+                from corund.policy_engine import policy_engine
+
+                self.log("Registering system tools...")
+                register_system_tools()
+                self._async_loop.call_soon_threadsafe(policy_engine.start)
+                self.log("✅ Agentic core is alive.")
+                get_startup_timer().mark("agentic")
+            except Exception as exc:
+                self.log(f"⚠️ Agentic core init failed: {exc}")
             return
 
-        self.log("Registering system tools...")
-        register_system_tools()
-        
-        self._async_loop.call_soon_threadsafe(policy_engine.start)
-        self.log("✅ Agentic core is alive.")
+        if self._agentic_started_at is not None and time.monotonic() - self._agentic_started_at > 5:
+            if self._agentic_timer is not None:
+                self._agentic_timer.stop()
+            self.log("❌ Agentic core init timed out. Running in degraded mode.")
 
     def start(self) -> None:
+        timer = get_startup_timer()
         self.ei_engine.start()
         self._heartbeat.start()
         self.log("✅ EI Engine started.")
 
-        self._initialize_agentic_core()
+        if self.safe_mode:
+            self.log("🛟 Safe Mode enabled: skipping agentic core + voice engine.")
+            os.environ["ETHEREA_DISABLE_SENSORS"] = "1"
+            from corund.ui.theme import get_theme_manager
+
+            get_theme_manager().set_accessibility(reduced_motion=True, minimal_mode=True, quiet_mode=True)
+        else:
+            QTimer.singleShot(0, self._init_agentic_deferred)
 
         # Set the initial workspace in the global state
         initial_workspace = self.workspace_registry.get_current()
         if initial_workspace:
             self.switch_workspace(initial_workspace.name)
 
+        self.window.show()
+        timer.mark("ui")
+
+        if not self.safe_mode:
+            QTimer.singleShot(800, self._init_voice_deferred)
+        else:
+            self._log_startup_profile()
+
+    def _init_agentic_deferred(self) -> None:
         try:
+            self._initialize_agentic_core()
+        except Exception as exc:
+            self.log(f"⚠️ Agentic core init failed: {exc}")
+
+    def _init_voice_deferred(self) -> None:
+        try:
+            from corund.voice_engine import get_voice_engine
+
             self.voice_engine = get_voice_engine()
             if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
                 self.voice_engine.start_command_loop()
@@ -152,8 +206,16 @@ class AppController(QObject):
                 self.log("🔇 Voice engine unavailable (no mic or missing deps).")
         except Exception as exc:
             self.log(f"⚠️ Voice engine init failed: {exc}")
+        get_startup_timer().mark("voice")
+        self._log_startup_profile()
 
-        self.window.show()
+    def _log_startup_profile(self) -> None:
+        if self._profile_logged:
+            return
+        report = get_startup_timer().report()
+        if report:
+            log_startup_report(report)
+            self._profile_logged = True
 
     def shutdown(self) -> None:
         self._heartbeat.stop()

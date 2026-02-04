@@ -15,6 +15,11 @@ def resource_path(relative: str) -> str:
 
 
 def user_data_dir(app_name: str = "EthereaOS") -> Path:
+    override = os.environ.get("ETHEREA_DATA_DIR")
+    if override:
+        path = Path(override)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
     if sys.platform.startswith("win"):
         root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     elif sys.platform.startswith("darwin"):
