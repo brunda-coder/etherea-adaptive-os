@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from corund.ui.aurora_bar import AuroraBar
 from corund.ui.avatar_panel import AvatarPanel
+from corund.ui.candy_toast import CandyToastManager
 from corund.ui.demo_mode_panel import DemoModePanel
 from corund.ui.ethera_dock import EtheraDock
 from corund.ui.focus_canvas import FocusCanvas
@@ -22,6 +23,7 @@ from corund.ui.status_ribbon import StatusRibbon
 from corund.ui.theme import get_theme_manager
 from corund.workspace_behaviors import WORKSPACE_BEHAVIORS
 from corund.workspace_registry import WorkspaceType
+from core.emotion import UserState
 
 
 class EthereaMainWindowV3(QMainWindow):
@@ -61,6 +63,9 @@ class EthereaMainWindowV3(QMainWindow):
         self.center_stack = QStackedWidget()
         self.focus_canvas = FocusCanvas()
         self.settings_panel = SettingsPrivacyWidget()
+        self.settings_panel.avatar_settings_changed.connect(self._apply_avatar_settings)
+        self.settings_panel.emotion_settings_changed.connect(self._apply_emotion_settings)
+        self.settings_panel.voice_settings_changed.connect(self._apply_voice_settings)
         self.demo_panel = DemoModePanel()
         self.center_stack.addWidget(self.focus_canvas)
         self.center_stack.addWidget(self.settings_panel)
@@ -78,9 +83,18 @@ class EthereaMainWindowV3(QMainWindow):
         self.status_ribbon = StatusRibbon()
         main_layout.addWidget(self.status_ribbon)
 
+        self.toast_manager = CandyToastManager(self)
         self._bind_shortcuts()
         get_theme_manager().theme_changed.connect(self._on_theme_changed)
         self._apply_accessibility_mode()
+
+        QTimer.singleShot(
+            900,
+            lambda: self.app_controller.tts_engine.speak(
+                "I can open a workspace, run a command, or summarize notes. Want a quick tour?",
+                {"source": "onboarding"},
+            ),
+        )
 
     def _bind_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+K"), self, activated=self._focus_command)
@@ -169,6 +183,8 @@ class EthereaMainWindowV3(QMainWindow):
     def _on_theme_changed(self) -> None:
         if self.app_controller.app is not None:
             get_theme_manager().apply_to(self.app_controller.app)
+        if get_theme_manager().theme_name == "candy":
+            self.toast_manager.show_toast("Candy mode activated ✨")
         self._apply_accessibility_mode()
         self.update()
 
@@ -180,3 +196,41 @@ class EthereaMainWindowV3(QMainWindow):
         else:
             self.ethera_dock.setVisible(True)
             self.avatar_panel.setVisible(True)
+
+    def on_user_state_updated(self, user_state: UserState) -> None:
+        confidence = user_state.confidence
+        probabilities = user_state.probabilities or {}
+        frustrated = probabilities.get("frustrated", 0.0)
+
+        if confidence < 0.35:
+            self.avatar_panel.dialogue.setText("“I’m not fully sure how you’re feeling. Want a gentle check-in?”")
+            return
+
+        if frustrated > 0.7 and confidence > 0.6:
+            self.avatar_panel.dialogue.setText("“Feeling a bit tense? I can simplify the UI and offer a reset.”")
+            get_theme_manager().set_accessibility(reduced_motion=True, quiet_mode=True)
+            self.ethera_dock.setVisible(False)
+        else:
+            self.ethera_dock.setVisible(True)
+
+    def _apply_avatar_settings(self, settings: dict) -> None:
+        self.avatar_panel.apply_avatar_settings(settings)
+
+    def _apply_emotion_settings(self, settings: dict) -> None:
+        engine = self.app_controller.emotion_engine
+        if "enabled" in settings:
+            engine.set_enabled(settings["enabled"])
+        if "camera_opt_in" in settings:
+            engine.set_camera_opt_in(settings["camera_opt_in"])
+        if settings.get("delete_data"):
+            engine.delete_data()
+        if settings.get("kill_switch"):
+            engine.set_kill_switch(True)
+
+    def _apply_voice_settings(self, settings: dict) -> None:
+        tts = self.app_controller.tts_engine
+        if "enabled" in settings:
+            tts.set_enabled(settings["enabled"])
+        if "dramatic_mode" in settings:
+            tts.set_dramatic_mode(settings["dramatic_mode"])
+            self.avatar_panel.world.set_dramatic_mode(settings["dramatic_mode"])

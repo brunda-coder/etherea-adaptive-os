@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict
 
 from PySide6.QtCore import QObject, Signal
@@ -53,12 +54,52 @@ VIVID_SOUL_TOKENS = ThemeTokens(
     },
 )
 
+CANDY_TOKENS = ThemeTokens(
+    colors={
+        "bg.base": "#2a0b3a",
+        "bg.panel": "#3a114f",
+        "bg.overlay": "#4a1463",
+        "text.primary": "#fff4ff",
+        "text.secondary": "#f7d3ff",
+        "text.muted": "#d3b2ea",
+        "accent.primary": "#ff7adf",
+        "accent.secondary": "#7ee8ff",
+        "state.success": "#6cf2c3",
+        "state.warning": "#ffd36c",
+        "state.danger": "#ff7aa5",
+        "state.focus": "#8ff0ff",
+        "state.calm": "#a4f4c2",
+        "ring.calm": "#a4f4c2",
+        "ring.focus": "#8ff0ff",
+        "ring.stress": "#ff9bc7",
+        "ring.idle": "#e7b2ff",
+    },
+    radii={
+        "panel": 22,
+        "card": 18,
+        "chip": 999,
+        "button": 16,
+    },
+    spacing={
+        "xs": 10,
+        "sm": 18,
+        "md": 26,
+        "lg": 36,
+    },
+    font_sizes={
+        "title": 20,
+        "body": 15,
+        "micro": 12,
+    },
+)
+
 
 class ThemeManager(QObject):
     theme_changed = Signal()
 
     def __init__(self, tokens: ThemeTokens | None = None) -> None:
         super().__init__()
+        self.theme_name = "default"
         self.tokens = tokens or VIVID_SOUL_TOKENS
         self.reduced_motion = False
         self.high_contrast = False
@@ -87,13 +128,25 @@ class ThemeManager(QObject):
             self.minimal_mode = minimal_mode
         self.theme_changed.emit()
 
+    def set_theme(self, name: str) -> None:
+        normalized = (name or "").strip().lower()
+        if normalized in {"default", "vivid"}:
+            self.theme_name = "default"
+            self.tokens = VIVID_SOUL_TOKENS
+        elif normalized in {"candy", "candy crush", "candy_crush"}:
+            self.theme_name = "candy"
+            self.tokens = CANDY_TOKENS
+        else:
+            return
+        self.theme_changed.emit()
+
     def apply_to(self, app) -> None:
         tokens = self.tokens.colors
         radius = self.tokens.radii
         font_sizes = self.tokens.font_sizes
-        line_height = "1.5" if self.dyslexia_spacing else "1.2"
+        line_height = "1.55" if self.dyslexia_spacing else "1.25"
         focus_ring = tokens["state.focus"] if not self.high_contrast else "#ffffff"
-        panel_border = "#2c3155" if not self.high_contrast else "#d6d8ff"
+        panel_border = "#2c3155" if not self.high_contrast else "#ffe3ff"
         panel_bg = tokens["bg.panel"]
         text_primary = tokens["text.primary"]
         text_secondary = tokens["text.secondary"]
@@ -105,10 +158,14 @@ class ThemeManager(QObject):
             color: {text_primary};
             font-size: {font_sizes['body']}px;
             line-height: {line_height};
+            font-family: 'Segoe UI', 'Inter', 'Nunito', sans-serif;
         }}
         QLabel#TitleText {{
             font-size: {font_sizes['title']}px;
             font-weight: 700;
+        }}
+        QLabel#CandySubtitle {{
+            color: {text_secondary};
         }}
         QFrame[panel="true"] {{
             background-color: {panel_bg};
@@ -153,7 +210,34 @@ class ThemeManager(QObject):
             padding: 6px;
         }}
         """
+
+        if self.theme_name == "candy":
+            qss += "\n" + _load_candy_qss(tokens, radius)
+
         app.setStyleSheet(qss)
+
+
+def _load_candy_qss(tokens: Dict[str, str], radius: Dict[str, int]) -> str:
+    qss_path = Path(__file__).with_name("candy_theme.qss")
+    if not qss_path.exists():
+        return ""
+    raw = qss_path.read_text(encoding="utf-8")
+    return raw.format(
+        base=tokens["bg.base"],
+        panel=tokens["bg.panel"],
+        overlay=tokens["bg.overlay"],
+        text=tokens["text.primary"],
+        text_secondary=tokens["text.secondary"],
+        accent=tokens["accent.primary"],
+        accent2=tokens["accent.secondary"],
+        success=tokens["state.success"],
+        warning=tokens["state.warning"],
+        danger=tokens["state.danger"],
+        ring=tokens["ring.calm"],
+        card_radius=radius["card"],
+        panel_radius=radius["panel"],
+        button_radius=radius["button"],
+    )
 
 
 _theme_manager: ThemeManager | None = None
@@ -164,4 +248,3 @@ def get_theme_manager() -> ThemeManager:
     if _theme_manager is None:
         _theme_manager = ThemeManager()
     return _theme_manager
-

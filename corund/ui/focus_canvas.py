@@ -11,6 +11,7 @@ class FocusCanvas(QFrame):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setProperty("panel", True)
+        self.setObjectName("AuroraCanvas")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -20,7 +21,7 @@ class FocusCanvas(QFrame):
         title = QLabel("Focus Canvas")
         title.setObjectName("TitleText")
         subtitle = QLabel("Keep the stage calm. Two cards max.")
-        subtitle.setStyleSheet("color:#8a90b8;")
+        subtitle.setObjectName("CandySubtitle")
         header.addWidget(title)
         header.addStretch(1)
         header.addWidget(subtitle)
@@ -30,14 +31,20 @@ class FocusCanvas(QFrame):
         self.ring.setMinimumHeight(180)
         layout.addWidget(self.ring)
 
-        cards = QHBoxLayout()
-        self._add_card(cards, "Today", "3 tasks · 1 priority")
-        self._add_card(cards, "Focus", "25:00 Deep Work")
-        layout.addLayout(cards)
+        cards_row_one = QHBoxLayout()
+        self._add_card(cards_row_one, "Missions", "3 quests · 1 priority")
+        self._add_card(cards_row_one, "Focus Streak", "4 days · 25:00 sprint")
+        layout.addLayout(cards_row_one)
+
+        cards_row_two = QHBoxLayout()
+        self._add_card(cards_row_two, "Mood", "Calm · breathing reset")
+        self._add_card(cards_row_two, "Quick Actions", "Open workspace · Capture note")
+        layout.addLayout(cards_row_two)
 
     def _add_card(self, layout: QHBoxLayout, title: str, desc: str) -> None:
         card = QFrame()
         card.setProperty("panel", True)
+        card.setObjectName("CandyCard")
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(14, 12, 14, 12)
         card_layout.setSpacing(6)
