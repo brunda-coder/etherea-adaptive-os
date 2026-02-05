@@ -66,3 +66,12 @@ class AuroraRingWidget(QWidget):
         pen.setCapStyle(Qt.RoundCap)
         painter.setPen(pen)
         painter.drawEllipse(rect)
+
+        if get_theme_manager().theme_name == "candy":
+            sparkle = QPen(QColor(tokens["accent.secondary"]), 2)
+            painter.setPen(sparkle)
+            for offset in range(0, 360, 45):
+                angle = math.radians(offset + self._pulse * 20)
+                x = rect.center().x() + math.cos(angle) * rect.width() * 0.46
+                y = rect.center().y() + math.sin(angle) * rect.height() * 0.46
+                painter.drawPoint(int(x), int(y))

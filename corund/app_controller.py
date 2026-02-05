@@ -15,6 +15,8 @@ from corund.state import get_state
 
 from corund.app_runtime import user_data_dir
 from corund.ei_engine import EIEngine
+from core.emotion import get_emotion_engine
+from core.voice import get_tts_engine
 from corund.ui.main_window_v3 import EthereaMainWindowV3
 from corund.signals import signals
 from corund.workspace_manager import WorkspaceManager
@@ -70,6 +72,8 @@ class AppController(QObject):
             log_cb=self.log,
         )
         self.voice_engine: Optional["VoiceEngine"] = None
+        self.emotion_engine = get_emotion_engine()
+        self.tts_engine = get_tts_engine()
         self._agentic_timer: QTimer | None = None
         self._agentic_started_at: float | None = None
         self._profile_logged = False
@@ -112,6 +116,9 @@ class AppController(QObject):
             stress=self.ei_engine.state.get("stress", 0.2),
             energy=self.ei_engine.state.get("energy", 0.5),
         )
+
+        user_state = self.emotion_engine.tick()
+        self.window.on_user_state_updated(user_state)
     
     def _run_async_loop(self):
         """Runs the asyncio event loop in a separate thread."""
