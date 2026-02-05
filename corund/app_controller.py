@@ -204,13 +204,6 @@ class AppController(QObject):
 
     def _init_voice_deferred(self) -> None:
         try:
-        try:
-            self._initialize_agentic_core()
-        except Exception as exc:
-            self.log(f"⚠️ Agentic core init failed: {exc}")
-
-    def _init_voice_deferred(self) -> None:
-        try:
             from corund.voice_engine import get_voice_engine
 
             self.voice_engine = get_voice_engine()
@@ -221,18 +214,10 @@ class AppController(QObject):
                 self.log("🔇 Voice engine unavailable (no mic or missing deps).")
         except Exception as exc:
             self.log(f"⚠️ Voice engine init failed: {exc}")
+        else:
+            self.log("✅ Voice engine initialization complete.")
         get_startup_timer().mark("voice")
         self._log_startup_profile()
-        if not self.safe_mode:
-            try:
-                self.voice_engine = get_voice_engine()
-                if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
-                    self.voice_engine.start_command_loop()
-                    self.log("✅ Voice engine started.")
-                else:
-                    self.log("🔇 Voice engine unavailable (no mic or missing deps).")
-            except Exception as exc:
-                self.log(f"⚠️ Voice engine init failed: {exc}")
 
     def _log_startup_profile(self) -> None:
         if self._profile_logged:

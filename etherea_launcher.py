@@ -104,7 +104,6 @@ def main() -> int:
     timer.mark("qt")
     controller = AppController(app, safe_mode=args.safe_mode, diagnostics=diagnostics)
     timer.mark("controller")
-    controller = AppController(app, safe_mode=args.safe_mode, diagnostics=diagnostics)
 
     # Optional: make the default window feel more "app-like" (not tiny)
     try:
