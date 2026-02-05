@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from corund.ui.command_palette import CommandPalette
 from corund.workspace_ai.workspace_controller import WorkspaceController

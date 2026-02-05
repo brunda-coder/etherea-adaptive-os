@@ -21,7 +21,7 @@ def main():
         return -1
 
     # Show the main window
-    controller.main_window.show()
+    controller.window.show()
 
     # Start the Qt event loop
     sys.exit(app.exec())
