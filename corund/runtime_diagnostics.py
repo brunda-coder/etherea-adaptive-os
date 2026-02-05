@@ -6,12 +6,14 @@ import os
 import platform
 import sys
 import traceback
+from collections import deque
 from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from corund.app_runtime import is_frozen, user_data_dir
 from corund.resource_manager import ResourceManager
+from corund.version import __version__
 
 
 @dataclass
@@ -104,7 +106,9 @@ class RuntimeDiagnostics:
         self.logger.info("Diagnostics: %s", json.dumps(details, ensure_ascii=False))
 
     def _build_details(self) -> dict[str, object]:
+        log_path = self._log_path()
         return {
+            "app_version": __version__,
             "platform": platform.platform(),
             "python": sys.version.split()[0],
             "executable": sys.executable,
@@ -112,10 +116,38 @@ class RuntimeDiagnostics:
             "frozen": is_frozen(),
             "base_path": getattr(sys, "_MEIPASS", ""),
             "data_dir": str(user_data_dir()),
+            "log_path": str(log_path),
+            "log_size_bytes": log_path.stat().st_size if log_path.exists() else 0,
         }
 
+    def _log_path(self) -> Path:
+        return ResourceManager.logs_dir() / "etherea.log"
+
+    def _read_log_tail(self, max_lines: int = 200) -> str:
+        log_path = self._log_path()
+        if not log_path.exists():
+            return ""
+        try:
+            tail = deque(maxlen=max_lines)
+            with log_path.open("r", encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    tail.append(line.rstrip("\n"))
+            return "\n".join(tail)
+        except OSError:
+            return ""
+
+    def log_contents(self) -> str:
+        log_path = self._log_path()
+        if not log_path.exists():
+            return ""
+        try:
+            return log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+
     def diagnostics_text(self, report: DiagnosticReport | None = None) -> str:
-        payload = report.details if report else self._build_details()
+        payload = dict(report.details if report else self._build_details())
+        payload["log_tail"] = self._read_log_tail()
         return json.dumps(payload, indent=2, ensure_ascii=False)
 
     def self_check_marker(self) -> Path:
@@ -130,6 +162,7 @@ class RuntimeDiagnostics:
     def run_ui_self_check(self, controller) -> DiagnosticReport:
         errors: list[str] = []
         warnings: list[str] = []
+        rm = ResourceManager()
 
         window = controller.window
         if not window.aurora_bar.isVisible():
@@ -154,6 +187,59 @@ class RuntimeDiagnostics:
                 errors.append(f"Workspace switch failed: {exc}")
         else:
             warnings.append("Only one workspace available; switch check skipped.")
+
+        if not getattr(controller, "ei_engine", None):
+            errors.append("EI engine missing.")
+        elif not controller.ei_engine.running:
+            errors.append("EI engine is not running.")
+
+        if not getattr(controller, "workspace_manager", None):
+            errors.append("Workspace manager missing.")
+        if not getattr(controller, "workspace_registry", None):
+            errors.append("Workspace registry missing.")
+        elif controller.workspace_registry.get_current() is None:
+            errors.append("No active workspace registered.")
+
+        if not getattr(controller, "action_registry", None):
+            errors.append("Action registry missing.")
+        elif not controller.action_registry.list_actions():
+            errors.append("Action registry is empty.")
+
+        if not getattr(controller, "aurora_pipeline", None):
+            errors.append("Aurora pipeline missing.")
+        if not getattr(controller, "os_pipeline", None):
+            errors.append("OS pipeline missing.")
+
+        core_files = [
+            "data/apps.json",
+            "data/etherea.db",
+        ]
+        for core_file in core_files:
+            path = Path(rm.resolve(core_file))
+            if not path.exists():
+                errors.append(f"Missing core data file: {core_file}")
+                continue
+            try:
+                with path.open("rb") as handle:
+                    handle.read(256)
+            except OSError as exc:
+                errors.append(f"Unreadable core data file {core_file}: {exc}")
+
+        critical_assets = [
+            "assets/avatar/face_idle.webp",
+            "assets/audio/ui_click.wav",
+            "corund/assets/models/aurora_placeholder.gltf",
+        ]
+        for asset in critical_assets:
+            asset_path = Path(rm.resolve(asset))
+            if not asset_path.exists():
+                errors.append(f"Missing critical asset: {asset}")
+                continue
+            try:
+                with asset_path.open("rb") as handle:
+                    handle.read(128)
+            except OSError as exc:
+                errors.append(f"Unreadable critical asset {asset}: {exc}")
 
         details = self._build_details()
         return DiagnosticReport(ok=not errors, errors=errors, warnings=warnings, details=details)

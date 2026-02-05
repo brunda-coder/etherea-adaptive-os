@@ -8,6 +8,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -51,23 +52,29 @@ class RecoveryScreen(QDialog):
         btn_row = QHBoxLayout()
         self.safe_btn = QPushButton("Restart in Safe Mode")
         self.logs_btn = QPushButton("Open Logs Folder")
-        self.copy_btn = QPushButton("Copy Diagnostics")
+        self.copy_btn = QPushButton("Copy Report")
+        self.save_btn = QPushButton("Save Report")
         self.report_btn = QPushButton("Report Issue")
         self.exit_btn = QPushButton("Exit")
         btn_row.addWidget(self.safe_btn)
         btn_row.addWidget(self.logs_btn)
         btn_row.addWidget(self.copy_btn)
+        btn_row.addWidget(self.save_btn)
         btn_row.addWidget(self.report_btn)
         btn_row.addWidget(self.exit_btn)
         layout.addLayout(btn_row)
 
         self.safe_btn.clicked.connect(self._restart_safe_mode)
         self.logs_btn.clicked.connect(self._open_logs)
-        self.copy_btn.clicked.connect(self._copy_diagnostics)
+        self.copy_btn.clicked.connect(self._copy_report)
+        self.save_btn.clicked.connect(self._save_report)
         self.report_btn.clicked.connect(self._report_issue)
         self.exit_btn.clicked.connect(self.reject)
 
     def _build_details_text(self) -> str:
+        return self._build_report_text(include_full_log=False)
+
+    def _build_report_text(self, *, include_full_log: bool) -> str:
         lines = ["Errors:"]
         lines.extend(f"- {err}" for err in self.report.errors)
         if self.report.warnings:
@@ -77,6 +84,11 @@ class RecoveryScreen(QDialog):
         lines.append("")
         lines.append("Diagnostics:")
         lines.append(self.diagnostics.diagnostics_text(self.report))
+        if include_full_log:
+            lines.append("")
+            lines.append("Full Log (etherea.log):")
+            log_contents = self.diagnostics.log_contents()
+            lines.append(log_contents if log_contents else "(log file unavailable)")
         return "\n".join(lines)
 
     def _restart_safe_mode(self) -> None:
@@ -89,9 +101,24 @@ class RecoveryScreen(QDialog):
         logs_dir = user_data_dir() / "logs"
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(logs_dir)))
 
-    def _copy_diagnostics(self) -> None:
+    def _copy_report(self) -> None:
         clipboard = QApplication.instance().clipboard()
-        clipboard.setText(self.details.toPlainText())
+        clipboard.setText(self._build_report_text(include_full_log=False))
+
+    def _save_report(self) -> None:
+        default_name = str(user_data_dir() / "etherea_report.txt")
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Diagnostic Report",
+            default_name,
+            "Text Files (*.txt);;All Files (*)",
+        )
+        if not file_path:
+            return
+        Path(file_path).write_text(
+            self._build_report_text(include_full_log=True),
+            encoding="utf-8",
+        )
 
     def _report_issue(self) -> None:
         QDesktopServices.openUrl(QUrl(self.report_url))

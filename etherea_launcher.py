@@ -67,6 +67,8 @@ from corund.runtime_diagnostics import RuntimeDiagnostics
 from corund.perf import get_startup_timer
 from corund.ui.recovery_screen import RecoveryScreen
 
+REPORT_URL = "https://github.com/etherea-ai/etherea-adaptive-os/issues/new"
+
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Etherea OS Launcher")
@@ -117,7 +119,7 @@ def main() -> int:
         screen = RecoveryScreen(
             diagnostics,
             startup_report,
-            report_url="https://github.com/<OWNER>/<REPO>/issues/new",
+            report_url=REPORT_URL,
         )
         screen.show()
         return app.exec()
@@ -136,7 +138,7 @@ def main() -> int:
         screen = RecoveryScreen(
             diagnostics,
             report,
-            report_url="https://github.com/<OWNER>/<REPO>/issues/new",
+            report_url=REPORT_URL,
         )
         screen.show()
         if args.self_test:
