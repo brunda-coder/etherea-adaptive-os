@@ -14,7 +14,8 @@ class DemoModePanel(QFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("panel", True)
-        self.script_path = Path(ResourceManager.resolve_path("assets/demo/demo_script_01.json"))
+        script_resolved = ResourceManager.resolve_asset("assets/demo/demo_script_01.json")
+        self.script_path = Path(script_resolved) if script_resolved else None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -54,8 +55,13 @@ class DemoModePanel(QFrame):
         self._load_script()
 
     def _load_script(self) -> None:
-        if not self.script_path.exists():
-            self.editor.setPlainText("{}")
+        if self.script_path is None or not self.script_path.exists():
+            self.status.setText("Demo assets not installed")
+            self.steps.hide()
+            self.start_btn.setEnabled(False)
+            self.next_btn.setEnabled(False)
+            self.prev_btn.setEnabled(False)
+            self.editor.setPlainText('{\n  "message": "Demo assets not installed"\n}')
             return
         self.editor.setPlainText(self.script_path.read_text(encoding="utf-8"))
         try:

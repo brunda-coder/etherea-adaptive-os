@@ -11,16 +11,19 @@ Usage:
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from corund.app_runtime import resource_path
+from corund.resource_manager import ResourceManager
 
 
 def asset(rel_path: str) -> str:
-    """Return absolute path to a bundled asset."""
-    return resource_path(rel_path)
+    """Return absolute path to a bundled asset (best-effort)."""
+    return ResourceManager.resolve_path(rel_path)
+
+
+def asset_optional(rel_path: str, *, corund_specific: bool = False) -> str | None:
+    """Return absolute path when an asset exists, else None."""
+    return ResourceManager.resolve_asset(rel_path, corund_specific=corund_specific)
 
 
 def exists(rel_path: str) -> bool:
     """Check if a bundled asset exists."""
-    return Path(resource_path(rel_path)).exists()
+    return asset_optional(rel_path, corund_specific=rel_path.startswith("corund/assets/")) is not None

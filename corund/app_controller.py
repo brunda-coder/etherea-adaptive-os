@@ -29,6 +29,7 @@ from corund.os_adapter import OSAdapter
 from corund.os_pipeline import OSPipeline
 from corund.resource_manager import ResourceManager
 from corund.runtime_diagnostics import RuntimeDiagnostics
+from corund.capabilities import detect_capabilities
 from corund.perf import get_startup_timer, log_startup_report
 
 if TYPE_CHECKING:
@@ -77,6 +78,7 @@ class AppController(QObject):
         self._agentic_timer: QTimer | None = None
         self._agentic_started_at: float | None = None
         self._profile_logged = False
+        self.capabilities = detect_capabilities()
 
         # UI
         self.window = EthereaMainWindowV3(self)
@@ -172,6 +174,7 @@ class AppController(QObject):
         self.ei_engine.start()
         self._heartbeat.start()
         self.log("✅ EI Engine started.")
+        self.log(f"ℹ️ Capabilities: {self.capabilities.to_dict()}")
 
         if self.safe_mode:
             self.log("🛟 Safe Mode enabled: skipping agentic core + voice engine.")

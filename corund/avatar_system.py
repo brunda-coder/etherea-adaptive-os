@@ -16,7 +16,7 @@ import os
 import json
 
 from corund.emotion_mapper import EmotionMapper
-from corund.app_runtime import resource_path
+from corund.resource_manager import ResourceManager
 
 @dataclass
 class AvatarProfile:
@@ -191,7 +191,7 @@ class AvatarSystem:
         downstream engines (e.g. AvatarEngine) for self‑awareness and
         planning.
         """
-        manifest_path = resource_path("core/assets/avatar_manifest.json")
+        manifest_path = ResourceManager.resolve_asset("core/assets/avatar_manifest.json", corund_specific=True)
 
         # default manifest values
         default_manifest = {
@@ -211,7 +211,7 @@ class AvatarSystem:
 
         # Attempt to load an existing manifest
         try:
-            if os.path.exists(manifest_path):
+            if manifest_path and os.path.exists(manifest_path):
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     return data

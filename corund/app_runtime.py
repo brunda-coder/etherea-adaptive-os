@@ -14,6 +14,30 @@ def resource_path(relative: str) -> str:
     return str(base / relative)
 
 
+def resolve_asset_path(relative: str, *, corund_specific: bool = False) -> str | None:
+    """Resolve assets across dev/build layouts without hard-crashing callers."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    rel = (relative or "").replace("\\", "/")
+    candidates: list[str] = [rel]
+
+    if rel.startswith("core/assets/"):
+        candidates.append("assets/" + rel[len("core/assets/"):])
+    elif rel.startswith("assets/"):
+        candidates.append("core/assets/" + rel[len("assets/"):])
+
+    if corund_specific and not rel.startswith("corund/assets/"):
+        if rel.startswith("assets/"):
+            candidates.append("corund/assets/" + rel[len("assets/"):])
+        elif rel.startswith("core/assets/"):
+            candidates.append("corund/assets/" + rel[len("core/assets/"):])
+
+    for candidate in candidates:
+        p = (base / candidate).resolve()
+        if p.exists():
+            return str(p)
+    return None
+
+
 def user_data_dir(app_name: str = "EthereaOS") -> Path:
     override = os.environ.get("ETHEREA_DATA_DIR")
     if override:
