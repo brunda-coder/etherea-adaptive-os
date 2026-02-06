@@ -22,8 +22,8 @@ from typing import Any
 _corund = importlib.import_module("corund")
 
 # Let `import core.some_module` find modules inside the corund package directory.
-__path__ = list(getattr(_corund, "__path__", []))  # type: ignore
-__path__.append(str(Path(__file__).resolve().parent))
+__path__ = [str(Path(__file__).resolve().parent)]
+__path__.extend(list(getattr(_corund, "__path__", [])))  # type: ignore
 
 def __getattr__(name: str) -> Any:
     return getattr(_corund, name)

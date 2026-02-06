@@ -8,8 +8,37 @@ from typing import Optional, TYPE_CHECKING
 
 import os
 
-from PySide6.QtCore import QObject, QTimer
-from PySide6.QtWidgets import QApplication
+try:
+    from PySide6.QtCore import QObject, QTimer
+    from PySide6.QtWidgets import QApplication
+except Exception:  # headless/no-GL environments
+    class QObject:
+        pass
+
+    class QTimer:  # minimal test stub
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def setInterval(self, *args, **kwargs):
+            pass
+
+        @property
+        def timeout(self):
+            class _Sig:
+                def connect(self, *args, **kwargs):
+                    return None
+
+            return _Sig()
+
+        def start(self, *args, **kwargs):
+            pass
+
+        @staticmethod
+        def singleShot(*args, **kwargs):
+            return None
+
+    class QApplication:
+        pass
 
 from corund.state import get_state
 
@@ -17,7 +46,6 @@ from corund.app_runtime import user_data_dir
 from corund.ei_engine import EIEngine
 from core.emotion import get_emotion_engine
 from core.voice import get_tts_engine
-from corund.ui.main_window_v3 import EthereaMainWindowV3
 from corund.signals import signals
 from corund.workspace_manager import WorkspaceManager
 from corund.workspace_registry import WorkspaceRegistry, WorkspaceType, WorkspaceRecord
@@ -81,6 +109,8 @@ class AppController(QObject):
         self.capabilities = detect_capabilities()
 
         # UI
+        from corund.ui.main_window_v3 import EthereaMainWindowV3
+
         self.window = EthereaMainWindowV3(self)
 
         self._connect_signals()

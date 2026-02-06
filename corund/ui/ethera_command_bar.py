@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QLineEdit
 from PySide6.QtCore import Qt, Signal
 from corund.state import AppState
 
-class EtheraCommandBar(QLineEdit):
+class EthereaCommandBar(QLineEdit):
     """
     Top command bar for natural language control.
     Parses commands like 'focus mode', 'break', 'reset' and updates AppState.
@@ -70,3 +70,7 @@ class EtheraCommandBar(QLineEdit):
         self.setPlaceholderText(msg)
         # Restore default placeholder after delay could be added here, 
         # but for now we just leave the feedback until next type.
+
+
+# Backward-compatible alias used by older windows.
+EtheraCommandBar = EthereaCommandBar

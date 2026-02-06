@@ -17,6 +17,7 @@ from corund.ui.avatar_panel import AvatarPanel
 from corund.ui.candy_toast import CandyToastManager
 from corund.ui.demo_mode_panel import DemoModePanel
 from corund.ui.ethera_dock import EtheraDock
+from corund.ui.ethera_command_bar import EthereaCommandBar
 from corund.ui.focus_canvas import FocusCanvas
 from corund.ui.settings_privacy_widget import SettingsPrivacyWidget
 from corund.ui.status_ribbon import StatusRibbon
@@ -84,6 +85,13 @@ class EthereaMainWindowV3(QMainWindow):
         main_layout.addWidget(self.status_ribbon)
 
         self.toast_manager = CandyToastManager(self)
+        # Spec: home command input is voice-first and visible on the home screen.
+        self.home_command_input = EthereaCommandBar(self)
+        self.home_command_input.returnPressed.connect(
+            lambda: self.execute_user_command(self.home_command_input.text())
+        )
+        self.ethera_dock.layout().insertWidget(0, self.home_command_input)
+
         self._bind_shortcuts()
         get_theme_manager().theme_changed.connect(self._on_theme_changed)
         self._apply_accessibility_mode()
