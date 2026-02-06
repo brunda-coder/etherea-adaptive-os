@@ -102,7 +102,7 @@ class AvatarHeroineWidget(QWidget):
 
         # Display overlay (for "any cartoon" inside the screen)
         self._display_pixmap: Optional[QPixmap] = None
-        self._display_mode: str = "face"  # "face" or "image"
+        self._display_mode: str = "face"  # "face", "image", or "placeholder"
 
         # Hook voice signals (fixed for your repo zip)
         self._hook_voice_signals()
@@ -162,12 +162,18 @@ class AvatarHeroineWidget(QWidget):
         try:
             pm = QPixmap(image_path)
             if pm.isNull():
+                self._display_pixmap = None
+                self._display_mode = "placeholder"
+                self.update()
                 return False
             self._display_pixmap = pm
             self._display_mode = "image"
             self.update()
             return True
         except Exception:
+            self._display_pixmap = None
+            self._display_mode = "placeholder"
+            self.update()
             return False
 
     def clear_display_image(self) -> None:
@@ -368,7 +374,10 @@ class AvatarHeroineWidget(QWidget):
         clip.addEllipse(center, face_r * 0.985, face_r * 0.985)
         painter.setClipPath(clip)
 
-        if self._display_mode == "image" and self._display_pixmap is not None and not self._display_pixmap.isNull():
+        if self._display_mode == "placeholder":
+            placeholder = QColor(72, 84, 108, 255) if self._theme == "dark" else QColor(190, 198, 214, 255)
+            painter.fillRect(QRectF(center.x() - face_r * 0.62, center.y() - face_r * 0.62, face_r * 1.24, face_r * 1.24), placeholder)
+        elif self._display_mode == "image" and self._display_pixmap is not None and not self._display_pixmap.isNull():
             # ✅ any cartoon/image inside the screen
             pm = self._display_pixmap
             target = QRectF(center.x() - face_r, center.y() - face_r, face_r * 2, face_r * 2)

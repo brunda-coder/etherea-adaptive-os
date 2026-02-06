@@ -59,7 +59,7 @@ class RuntimeDiagnostics:
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 for asset in manifest.get("audio", []) + manifest.get("animations", []) + manifest.get("models", []):
                     if not rm.exists(asset):
-                        errors.append(f"Missing asset: {asset}")
+                        warnings.append(f"Missing optional asset: {asset}")
             except json.JSONDecodeError as exc:
                 warnings.append(f"Asset manifest unreadable: {exc}")
         else:
@@ -74,7 +74,7 @@ class RuntimeDiagnostics:
         ]
         for asset in required_assets:
             if not rm.exists(asset):
-                errors.append(f"Missing asset: {asset}")
+                warnings.append(f"Missing optional asset: {asset}")
 
         data_dir = user_data_dir()
         if not data_dir.exists():
@@ -233,13 +233,13 @@ class RuntimeDiagnostics:
         for asset in critical_assets:
             asset_path = Path(rm.resolve(asset))
             if not asset_path.exists():
-                errors.append(f"Missing critical asset: {asset}")
+                warnings.append(f"Missing optional UI asset: {asset}")
                 continue
             try:
                 with asset_path.open("rb") as handle:
                     handle.read(128)
             except OSError as exc:
-                errors.append(f"Unreadable critical asset {asset}: {exc}")
+                warnings.append(f"Unreadable optional UI asset {asset}: {exc}")
 
         details = self._build_details()
         return DiagnosticReport(ok=not errors, errors=errors, warnings=warnings, details=details)

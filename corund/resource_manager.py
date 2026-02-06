@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from corund.app_runtime import is_frozen, resource_path, user_data_dir
+from corund.app_runtime import is_frozen, resource_path, resolve_asset_path, user_data_dir
 
 
 class ResourceManager:
@@ -14,14 +14,24 @@ class ResourceManager:
         self.base_path = base_path
 
     def resolve(self, relative_path: str) -> str:
+        resolved = resolve_asset_path(relative_path, corund_specific=relative_path.startswith("corund/assets/"))
+        if resolved:
+            return resolved
         return str(self.base_path / relative_path)
 
+    def resolve_optional(self, relative_path: str, *, corund_specific: bool = False) -> str | None:
+        return resolve_asset_path(relative_path, corund_specific=corund_specific)
+
     def exists(self, relative_path: str) -> bool:
-        return Path(self.resolve(relative_path)).exists()
+        return self.resolve_optional(relative_path, corund_specific=relative_path.startswith("corund/assets/")) is not None
 
     @staticmethod
     def resolve_path(relative_path: str) -> str:
-        return resource_path(relative_path)
+        return resolve_asset_path(relative_path, corund_specific=relative_path.startswith("corund/assets/")) or resource_path(relative_path)
+
+    @staticmethod
+    def resolve_asset(relative_path: str, *, corund_specific: bool = False) -> str | None:
+        return resolve_asset_path(relative_path, corund_specific=corund_specific)
 
     @staticmethod
     def data_dir(app_name: str = "EthereaOS") -> Path:

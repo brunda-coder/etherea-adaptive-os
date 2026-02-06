@@ -23,7 +23,7 @@ class AudioEngine:
         self._volume = 0.5
 
         # Default track (you can change later)
-        self.default_track = ResourceManager.resolve_path("core/assets/audio/etherea_theme_a.wav")
+        self.default_track = ResourceManager.resolve_asset("core/assets/audio/etherea_theme_a.wav")
 
     def set_volume(self, vol: float):
         self._volume = max(0.0, min(1.0, float(vol)))
@@ -42,6 +42,9 @@ class AudioEngine:
             return
 
         track = track_path or self.default_track
+        if not track:
+            print("[AudioEngine] No default track resolved; audio disabled.")
+            return
 
         def _runner():
             try:

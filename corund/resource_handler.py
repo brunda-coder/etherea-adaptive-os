@@ -15,6 +15,9 @@ def get_resource_path(relative_path: str) -> str:
     :return: Absolute path to the resource
     """
     try:
+        resolved = ResourceManager.resolve_asset(relative_path, corund_specific=relative_path.startswith("corund/assets/"))
+        if resolved:
+            return resolved
         if hasattr(sys, "_MEIPASS"):
             # PyInstaller runtime
             base_path = sys._MEIPASS
