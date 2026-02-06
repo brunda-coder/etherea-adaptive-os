@@ -213,3 +213,9 @@ class FocusGuardian:
                 self.voice.speak(msg, language="en-IN")
             except Exception:
                 pass
+
+
+class EthereaAgent(IntelligentAgent):
+    """Compatibility wrapper expected by audits and registry dry-runs."""
+
+    pass

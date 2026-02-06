@@ -97,6 +97,15 @@ class ActionRegistry:
                     dnd_blocked=False,
                 ),
                 ActionSpec(
+                    action_id="create_presentation",
+                    label="Create Presentation",
+                    intent="create_ppt",
+                    modes=("idle", "focus", "break"),
+                    category="workspace",
+                    priority=24,
+                    dnd_blocked=False,
+                ),
+                ActionSpec(
                     action_id="toggle_dnd_off",
                     label="Override DND",
                     intent="toggle_dnd_off",
@@ -115,7 +124,9 @@ class ActionRegistry:
         return self._index.get(action_id)
 
     def action_for_intent(self, intent: str) -> Optional[ActionSpec]:
+        intent_aliases = {"create_presentation": "create_ppt", "ppt": "create_ppt"}
+        normalized = intent_aliases.get(intent, intent)
         for action in self._actions:
-            if action.intent == intent:
+            if action.intent == normalized:
                 return action
         return None

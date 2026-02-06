@@ -191,3 +191,55 @@ class EIEngine:
         elif self.emotion_vector["focus"] > 0.9:
             signals.proactive_trigger.emit("focus_shield_active")
             self.last_proactive_trigger = now
+
+
+    def update_from_activity(self, keyboard_stats: dict | None = None, mouse_stats: dict | None = None) -> Dict[str, float]:
+        """
+        Stable API for stress/focus inference based on keyboard + mouse telemetry.
+        """
+        keyboard_stats = keyboard_stats or {}
+        mouse_stats = mouse_stats or {}
+
+        key_intensity = self._clamp(float(keyboard_stats.get("intensity", 0.0)))
+        key_variance = self._clamp(float(keyboard_stats.get("variance", 0.0)))
+        mouse_intensity = self._clamp(float(mouse_stats.get("intensity", 0.0)))
+        mouse_jitter = self._clamp(float(mouse_stats.get("jitter", 0.0)))
+
+        self.on_input_activity("typing", {"intensity": key_intensity, "variance": key_variance})
+        self.on_input_activity("mouse", {"intensity": mouse_intensity, "jitter": mouse_jitter})
+
+        with self._lock:
+            # Heuristic stabilization for deterministic desktop behavior.
+            pressure = (0.55 * mouse_jitter) + (0.25 * mouse_intensity) + (0.20 * max(0.0, key_intensity - 0.7))
+            flow_support = max(0.0, key_intensity - key_variance)
+            self.emotion_vector["stress"] = self._clamp(self.emotion_vector["stress"] + (pressure * 0.12) - (flow_support * 0.05))
+            self.emotion_vector["focus"] = self._clamp(self.emotion_vector["focus"] + (flow_support * 0.09) - (mouse_jitter * 0.05))
+            return self.emotion_vector.copy()
+
+    def tick(self, mood: str | None = None) -> Dict[str, float]:
+        """
+        Aurora adaptation tick: reacts to time + mood + stress/focus.
+        """
+        now = time.localtime()
+        hour = now.tm_hour
+        with self._lock:
+            # Circadian modulation
+            if hour < 6 or hour >= 22:
+                self.emotion_vector["energy"] = self._clamp(self.emotion_vector["energy"] - 0.04)
+                self.emotion_vector["stress"] = self._clamp(self.emotion_vector["stress"] * 0.97)
+            elif 6 <= hour <= 10:
+                self.emotion_vector["energy"] = self._clamp(self.emotion_vector["energy"] + 0.03)
+                self.emotion_vector["focus"] = self._clamp(self.emotion_vector["focus"] + 0.02)
+
+            tag = (mood or "").strip().lower()
+            if tag in {"calm", "relaxed"}:
+                self.emotion_vector["stress"] = self._clamp(self.emotion_vector["stress"] - 0.06)
+                self.emotion_vector["focus"] = self._clamp(self.emotion_vector["focus"] + 0.02)
+            elif tag in {"stressed", "anxious"}:
+                self.emotion_vector["stress"] = self._clamp(self.emotion_vector["stress"] + 0.08)
+                self.emotion_vector["energy"] = self._clamp(self.emotion_vector["energy"] - 0.02)
+            elif tag in {"focused", "flow"}:
+                self.emotion_vector["focus"] = self._clamp(self.emotion_vector["focus"] + 0.06)
+                self.emotion_vector["flow"] = self._clamp(self.emotion_vector.get("flow", 0.0) + 0.05)
+
+            return self.emotion_vector.copy()
