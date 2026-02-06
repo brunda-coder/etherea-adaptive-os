@@ -1,0 +1,22 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; font-family: Inter, system-ui, sans-serif; }
+body { margin: 0; background: radial-gradient(circle at top, #1c2147, #070913 65%); color: #e8ebff; }
+.hero-root { min-height: 100vh; padding: 24px; position: relative; overflow: hidden; }
+.aurora-ring {
+  position: absolute; inset: 8% auto auto 50%; width: 520px; height: 520px; border-radius: 50%;
+  border: 2px solid rgba(128, 210, 255, 0.45); transform: translateX(-50%);
+  box-shadow: 0 0 120px rgba(98, 149, 255, .35), inset 0 0 90px rgba(103, 223, 255, .25);
+  animation: ringPulse 5s ease-in-out infinite;
+}
+@keyframes ringPulse { 0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)} }
+.panel { background: rgba(15,18,33,.72); border: 1px solid rgba(153,167,255,.35); border-radius: 16px; backdrop-filter: blur(12px); padding: 14px; }
+.top-bar { display: flex; align-items: center; gap: 16px; }
+.top-bar input, .palette input { flex: 1; background:#0a1025; color:#fff; border:1px solid #3f4d93; border-radius:10px; padding:10px; }
+.layout { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.avatar-bubble .pulse { width: 16px; height: 16px; border-radius: 50%; background: #6fe0ff; animation: beat 1.4s infinite ease-in-out; }
+@keyframes beat { 0%,100%{transform:scale(1);opacity:.65}50%{transform:scale(1.65);opacity:1} }
+.toggles label { display: block; margin: 8px 0; }
+.memory-panel { position: fixed; right: 24px; bottom: 24px; width: 320px; }
+.palette-overlay { position: fixed; inset: 0; background: rgba(5,7,14,.48); display: grid; place-items: center; }
+.palette { width: min(780px, 90vw); }
+button { background: #1f2b66; border: 1px solid #4e66c2; color: #eaf0ff; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
