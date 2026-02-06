@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MAX_BYTES=$((5 * 1024 * 1024))
-blocked_exts=(png jpg jpeg webp gif wav mp3 mp4 bin gltf glb exe AppImage msi dmg zip 7z pdf ttf otf)
+blocked_exts=(png jpg jpeg webp gif wav mp3 mp4 bin gltf glb exe appimage msi dmg zip 7z pdf ttf otf)
 
 mode="staged"
 range=""
@@ -37,6 +37,7 @@ err=0
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   ext="${file##*.}"
+  ext="${ext,,}"
   for blocked in "${blocked_exts[@]}"; do
     if [[ "$ext" == "$blocked" ]]; then
       echo "[prevent_binaries] blocked extension for new file: $file"
