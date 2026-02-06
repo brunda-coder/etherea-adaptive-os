@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import compileall
+import ctypes.util
 import importlib
 import json
 import os
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +31,7 @@ def main() -> int:
     if not log("PASS" if compiled else "FAIL", "compileall", "python -m compileall ."):
         failures += 1
 
-    modules = [
+    for mod in [
         "main",
         "corund.capabilities",
         "corund.voice_engine",
@@ -41,8 +41,10 @@ def main() -> int:
         "corund.workspace_ai.workspace_controller",
         "corund.workspace_manager",
         "corund.workspace_ai.session_memory",
-    ]
-    for mod in modules:
+        "corund.aurora_adaptation",
+        "corund.stress_focus",
+        "corund.theme_catalog",
+    ]:
         try:
             safe_import(mod)
             log("PASS", "import", mod)
@@ -50,37 +52,28 @@ def main() -> int:
             failures += 1
             log("FAIL", "import", f"{mod}: {exc}")
 
-    try:
-        from corund.capabilities import detect_capabilities, selftest_detect_capabilities_guard
+    from corund.capabilities import detect_capabilities, selftest_detect_capabilities_guard
 
-        caps = detect_capabilities().to_dict()
-        log("PASS", "capabilities", json.dumps(caps, sort_keys=True))
-        ok, msg = selftest_detect_capabilities_guard()
-        if not log("PASS" if ok else "FAIL", "capabilities_guard", msg):
-            failures += 1
-    except Exception as exc:
+    caps = detect_capabilities().to_dict()
+    log("PASS", "capabilities", json.dumps(caps, sort_keys=True))
+    ok, msg = selftest_detect_capabilities_guard()
+    if not log("PASS" if ok else "FAIL", "capabilities_guard", msg):
         failures += 1
-        log("FAIL", "capabilities", str(exc))
 
     try:
         from corund.voice_engine import VoiceEngine
 
         engine = VoiceEngine()
-        log("PASS", "voice_pipeline", "VoiceEngine constructed")
-
         values: list[float] = []
         if hasattr(engine, "viseme_updated") and getattr(engine, "viseme_updated") is not None:
             try:
-                engine.viseme_updated.connect(lambda v: values.append(float(v)))  # type: ignore[attr-defined]
+                engine.viseme_updated.connect(lambda v: values.append(float(v)))
             except Exception:
                 pass
-
         stop = getattr(__import__("threading"), "Event")()
         engine._viseme_pump(0.45, stop)
         smooth = len(values) >= 3 and max(values, default=0.0) > min(values, default=0.0)
-        if log("PASS" if smooth else "FAIL", "speak_test", f"viseme_samples={values[:12]}"):
-            pass
-        else:
+        if not log("PASS" if smooth else "FAIL", "speak_test", f"viseme_samples={values[:12]}"):
             failures += 1
         engine.stop()
     except Exception as exc:
@@ -89,9 +82,9 @@ def main() -> int:
 
     try:
         from corund.app_controller import AppController
+
         mic_ref = "start_command_loop" in Path(ROOT / "corund/app_controller.py").read_text(encoding="utf-8", errors="ignore")
-        log("PASS" if mic_ref else "FAIL", "mic_pipeline", "AppController._init_voice_deferred start_command_loop reference")
-        if not mic_ref:
+        if not log("PASS" if mic_ref else "FAIL", "mic_pipeline", "AppController._init_voice_deferred start_command_loop reference"):
             failures += 1
         _ = AppController
     except Exception as exc:
@@ -104,8 +97,7 @@ def main() -> int:
 
         pipeline = OSPipeline(OSAdapter(dry_run=True))
         result = pipeline.handle_intent("OPEN_URL", {"url": "https://example.com", "confirm": True}, overrides=OSOverrides(kill_switch=True))
-        ok = (result.get("reason") == "overrides")
-        if not log("PASS" if ok else "FAIL", "esc_kill_switch_path", str(result)):
+        if not log("PASS" if (result.get("reason") == "overrides") else "FAIL", "esc_kill_switch_path", str(result)):
             failures += 1
     except Exception as exc:
         failures += 1
@@ -118,11 +110,11 @@ def main() -> int:
 
         router = WorkspaceAIRouter()
         controller = WorkspaceController(WorkspaceManager())
-        sample = "switch to coding mode"
-        route = router.route(sample)
-        handled = controller.handle_command(sample, source="selftest")
-        ok = route.get("action") != "unknown" and isinstance(handled, dict)
-        if not log("PASS" if ok else "FAIL", "workspace_voice_switch", f"route={route} handled={handled}"):
+        suite = ["open workspace", "switch to drawing", "switch to pdf", "switch to coding", "open aurora", "open agent works"]
+        routes = [router.route(cmd) for cmd in suite]
+        outputs = [controller.handle_command(cmd, source="selftest") for cmd in suite]
+        ok = all(r.get("action") != "unknown" for r in routes) and all(isinstance(o, dict) for o in outputs)
+        if not log("PASS" if ok else "FAIL", "workspace_voice_switch", f"routes={routes} outputs={outputs}"):
             failures += 1
     except Exception as exc:
         failures += 1
@@ -133,8 +125,7 @@ def main() -> int:
 
         registry = ActionRegistry.default()
         action = registry.get("create_presentation") or registry.action_for_intent("create_ppt")
-        ok = action is not None
-        if not log("PASS" if ok else "FAIL", "agent_registry", f"action={getattr(action, 'action_id', None)}"):
+        if not log("PASS" if action is not None else "FAIL", "agent_registry", f"action={getattr(action, 'action_id', None)}"):
             failures += 1
     except Exception as exc:
         failures += 1
@@ -151,6 +142,18 @@ def main() -> int:
         failures += 1
 
     try:
+        from corund.theme_catalog import built_in_themes, gradient_creator
+
+        themes = built_in_themes()
+        preview = gradient_creator("Custom", "#111", "#333", "#999")
+        ok = len(themes) >= 50 and len(preview.stops) == 3
+        if not log("PASS" if ok else "FAIL", "themes_gradient", f"themes={len(themes)} preview={preview}"):
+            failures += 1
+    except Exception as exc:
+        failures += 1
+        log("FAIL", "themes_gradient", str(exc))
+
+    try:
         from corund.workspace_ai.session_memory import save_snapshot, load_snapshot
 
         with tempfile.TemporaryDirectory() as td:
@@ -160,12 +163,17 @@ def main() -> int:
             out = save_snapshot(payload)
             loaded = load_snapshot()
             os.chdir(prev)
-        ok = loaded.get("open_files") == payload.get("open_files")
+        ok = loaded.get("open_files") == payload.get("open_files") and loaded.get("retention") == "local"
         if not log("PASS" if ok else "FAIL", "memory_persistence", f"saved={out} loaded_keys={list(loaded.keys())}"):
             failures += 1
     except Exception as exc:
         failures += 1
         log("FAIL", "memory_persistence", str(exc))
+
+    if ctypes.util.find_library("GL") is None:
+        log("SKIP", "env_libGL", "libGL.so.1 unavailable in this environment")
+    else:
+        log("PASS", "env_libGL", "libGL detected")
 
     print(f"SUMMARY failures={failures}")
     return 2 if failures else 0

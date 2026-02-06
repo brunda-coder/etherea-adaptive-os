@@ -24,6 +24,7 @@ from corund.ui.status_ribbon import StatusRibbon
 from corund.ui.theme import get_theme_manager
 from corund.workspace_behaviors import WORKSPACE_BEHAVIORS
 from corund.workspace_registry import WorkspaceType
+from corund.tutorial_overlay import TutorialOverlayStateMachine
 from core.emotion import UserState
 
 
@@ -85,8 +86,9 @@ class EthereaMainWindowV3(QMainWindow):
         main_layout.addWidget(self.status_ribbon)
 
         self.toast_manager = CandyToastManager(self)
+        self.tutorial_overlay = TutorialOverlayStateMachine()
         # Spec: home command input is voice-first and visible on the home screen.
-        self.home_command_input = EthereaCommandBar(self)
+        self.home_command_input = EthereaCommandBar(self, app_controller=self.app_controller)
         self.home_command_input.returnPressed.connect(
             lambda: self.execute_user_command(self.home_command_input.text())
         )
@@ -95,6 +97,8 @@ class EthereaMainWindowV3(QMainWindow):
         self._bind_shortcuts()
         get_theme_manager().theme_changed.connect(self._on_theme_changed)
         self._apply_accessibility_mode()
+
+        self._show_boot_sequence()
 
         QTimer.singleShot(
             900,
@@ -106,7 +110,7 @@ class EthereaMainWindowV3(QMainWindow):
 
     def _bind_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+K"), self, activated=self._focus_command)
-        QShortcut(QKeySequence("Esc"), self, activated=self._close_overlays)
+        QShortcut(QKeySequence("Esc"), self, activated=self._handle_escape_kill_switch)
         QShortcut(QKeySequence("Ctrl+1"), self, activated=lambda: self.center_stack.setCurrentWidget(self.focus_canvas))
         QShortcut(QKeySequence("Ctrl+2"), self, activated=lambda: self.center_stack.setCurrentWidget(self.settings_panel))
         QShortcut(QKeySequence("Ctrl+3"), self, activated=lambda: self.center_stack.setCurrentWidget(self.demo_panel))
@@ -177,6 +181,22 @@ class EthereaMainWindowV3(QMainWindow):
         else:
             self.ethera_dock.setVisible(True)
             self.avatar_panel.setVisible(True)
+
+
+    def _show_boot_sequence(self) -> None:
+        self.aurora_bar.status.setText("Aurora · Booting")
+        QTimer.singleShot(200, lambda: self.avatar_panel.dialogue.setText("“Welcome to Etherea. I’ll guide you.”"))
+        QTimer.singleShot(550, self.start_tutorial_overlay)
+
+    def start_tutorial_overlay(self) -> None:
+        step = self.tutorial_overlay.start()
+        self.aurora_bar.status.setText("Aurora · Tutorial")
+        self.avatar_panel.dialogue.setText(f"{step.title}: {step.instruction}")
+
+    def _handle_escape_kill_switch(self) -> None:
+        self._close_overlays()
+        if hasattr(self.app_controller, "emergency_pause_all"):
+            self.app_controller.emergency_pause_all()
 
     def _focus_command(self) -> None:
         self.ethera_dock.command_palette.input.setFocus()
