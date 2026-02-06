@@ -59,6 +59,7 @@ from corund.resource_manager import ResourceManager
 from corund.runtime_diagnostics import RuntimeDiagnostics
 from corund.capabilities import detect_capabilities
 from corund.perf import get_startup_timer, log_startup_report
+from corund.aurora_adaptation import AuroraAdaptationEngine
 
 if TYPE_CHECKING:
     from corund.voice_engine import VoiceEngine
@@ -107,6 +108,7 @@ class AppController(QObject):
         self._agentic_started_at: float | None = None
         self._profile_logged = False
         self.capabilities = detect_capabilities()
+        self.aurora_adaptation = AuroraAdaptationEngine()
 
         # UI
         from corund.ui.main_window_v3 import EthereaMainWindowV3
@@ -151,6 +153,25 @@ class AppController(QObject):
 
         user_state = self.emotion_engine.tick()
         self.window.on_user_state_updated(user_state)
+
+        metrics = {
+            "keyboard": {
+                "intensity": self.ei_engine.sub_states.get("typing_rhythm", 0.0),
+                "variance": max(0.0, 1.0 - self.ei_engine.sub_states.get("typing_rhythm", 0.0)),
+            },
+            "mouse": {
+                "intensity": self.ei_engine.emotion_vector.get("curiosity", 0.0),
+                "jitter": self.ei_engine.sub_states.get("physical_jitter", 0.0),
+            },
+        }
+        rec = self.aurora_adaptation.recommend(
+            hour=time.localtime().tm_hour,
+            metrics=metrics,
+            tutorial_active=getattr(getattr(self.window, "tutorial_overlay", None), "active", False),
+            face_mood=user_state.primary_label if hasattr(user_state, "primary_label") else None,
+        )
+        self.window.aurora_bar.setVisible(rec.visible)
+        self.window.aurora_bar.status.setText(f"Aurora · {rec.color.title()}")
     
     def _run_async_loop(self):
         """Runs the asyncio event loop in a separate thread."""
@@ -309,9 +330,28 @@ class AppController(QObject):
 
         try:
             out = self.ws_controller.handle_command(cmd, source=source)
+            action = out.get("action")
+            if action == "open_workspace":
+                self.window.center_stack.setCurrentWidget(self.window.focus_canvas)
+            elif action == "open_aurora":
+                self.window.aurora_bar.setVisible(True)
+            elif action == "open_agent_works":
+                self.window.center_stack.setCurrentWidget(self.window.demo_panel)
             self.log(f"✅ OUT: {out}")
         except Exception as e:
             self.log(f"❌ command failed: {e}")
+
+
+    def emergency_pause_all(self) -> None:
+        """Global ESC kill switch: pause voice, sensors, adaptations, and agent loop."""
+        self.ei_engine.stop()
+        try:
+            if self.voice_engine is not None:
+                self.voice_engine.stop()
+        except Exception:
+            pass
+        self.aurora_state_store.update(session_active=False)
+        self.log("🛑 ESC kill switch engaged: paused voice/sensors/adaptations/agent triggers.")
 
     def on_proactive_trigger(self, trigger_type: str) -> None:
         self.log(f"🧠 Proactive trigger: {trigger_type}")

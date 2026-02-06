@@ -29,6 +29,28 @@ class WorkspaceAIRouter:
             return self._action("self_explain", {"query": t})
 
         # ---- mode switches ----
+
+        # ---- home voice-first commands ----
+        if low in ("open aurora", "show aurora"):
+            return self._action("open_aurora", {"target": "aurora"})
+
+        if low in ("open workspace", "show workspace"):
+            return self._action("open_workspace", {"target": "workspace"})
+
+        if low in ("open agent works", "open agent", "agent works"):
+            return self._action("open_agent_works", {"target": "agent"})
+
+        if low.startswith("switch to "):
+            raw = low.replace("switch to ", "", 1).replace(" mode", "").strip()
+            alias = {
+                "drawing": "study",
+                "pdf": "research",
+                "pdf/office": "research",
+                "office": "research",
+                "coding": "coding",
+            }
+            mapped = alias.get(raw, raw)
+            return self._action("set_mode", {"mode": mapped, "requested_mode": raw})
         for mode in ["study", "coding", "exam", "calm", "deep_work", "meeting"]:
             if low == mode or f"{mode} mode" in low or low.startswith(f"set {mode}"):
                 return self._action("set_mode", {"mode": mode})

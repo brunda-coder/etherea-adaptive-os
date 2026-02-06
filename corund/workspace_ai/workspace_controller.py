@@ -72,6 +72,16 @@ class WorkspaceController:
             reply = "Hi 👋 I’m Etherea. Tell me a mode (study/coding/exam/calm) or say 'focus 25'."
             return {"ok": True, "action": "greet", "reply": reply, "meta": meta}
 
+
+        if action == "open_aurora":
+            return {"ok": True, "action": "open_aurora", "panel": "aurora", "meta": meta}
+
+        if action == "open_workspace":
+            return {"ok": True, "action": "open_workspace", "panel": "workspace", "meta": meta}
+
+        if action == "open_agent_works":
+            return {"ok": True, "action": "open_agent_works", "panel": "agent", "meta": meta}
+
         # ---- mode switch ----
         if action == "set_mode":
             mode = str(payload.get("mode", "study"))
