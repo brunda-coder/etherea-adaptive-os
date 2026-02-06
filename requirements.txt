@@ -1,7 +1,1 @@
-PySide6
-pygame
-pyttsx3
-SpeechRecognition
-openai
-requests
-numpy
+-r requirements-desktop.txt
