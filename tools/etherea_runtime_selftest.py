@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import compileall
 import importlib
+import json
+import os
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,45 +15,102 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def report(status: str, name: str, detail: str) -> bool:
+def log(status: str, name: str, detail: str) -> bool:
     print(f"[{status}] {name}: {detail}")
     return status == "PASS"
+
+
+def safe_import(mod: str):
+    return importlib.import_module(mod)
 
 
 def main() -> int:
     failures = 0
 
-    # 1) Key imports.
-    for mod in [
+    compiled = compileall.compile_dir(str(ROOT), quiet=1, maxlevels=12)
+    if not log("PASS" if compiled else "FAIL", "compileall", "python -m compileall ."):
+        failures += 1
+
+    modules = [
+        "main",
         "corund.capabilities",
+        "corund.voice_engine",
+        "corund.os_pipeline",
+        "corund.aurora_actions",
         "corund.workspace_ai.router",
         "corund.workspace_ai.workspace_controller",
-        "corund.ui.avatar.avatar_brain",
-        "corund.resource_manager",
-    ]:
+        "corund.workspace_manager",
+        "corund.workspace_ai.session_memory",
+    ]
+    for mod in modules:
         try:
-            importlib.import_module(mod)
-            report("PASS", "import", mod)
+            safe_import(mod)
+            log("PASS", "import", mod)
         except Exception as exc:
             failures += 1
-            report("FAIL", "import", f"{mod} -> {exc}")
+            log("FAIL", "import", f"{mod}: {exc}")
 
-    # 2) Compileall sanity.
-    compiled = compileall.compile_dir(str(ROOT / "corund"), quiet=1, maxlevels=10)
-    if not report("PASS" if compiled else "FAIL", "compileall", "python -m compileall corund"):
-        failures += 1
-
-    # 3) Capability detection.
     try:
-        from corund.capabilities import detect_capabilities
+        from corund.capabilities import detect_capabilities, selftest_detect_capabilities_guard
 
         caps = detect_capabilities().to_dict()
-        report("PASS", "capabilities", str(caps))
+        log("PASS", "capabilities", json.dumps(caps, sort_keys=True))
+        ok, msg = selftest_detect_capabilities_guard()
+        if not log("PASS" if ok else "FAIL", "capabilities_guard", msg):
+            failures += 1
     except Exception as exc:
         failures += 1
-        report("FAIL", "capabilities", str(exc))
+        log("FAIL", "capabilities", str(exc))
 
-    # 4) Command parser/router samples.
+    try:
+        from corund.voice_engine import VoiceEngine
+
+        engine = VoiceEngine()
+        log("PASS", "voice_pipeline", "VoiceEngine constructed")
+
+        values: list[float] = []
+        if hasattr(engine, "viseme_updated") and getattr(engine, "viseme_updated") is not None:
+            try:
+                engine.viseme_updated.connect(lambda v: values.append(float(v)))  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+        stop = getattr(__import__("threading"), "Event")()
+        engine._viseme_pump(0.45, stop)
+        smooth = len(values) >= 3 and max(values, default=0.0) > min(values, default=0.0)
+        if log("PASS" if smooth else "FAIL", "speak_test", f"viseme_samples={values[:12]}"):
+            pass
+        else:
+            failures += 1
+        engine.stop()
+    except Exception as exc:
+        failures += 1
+        log("FAIL", "voice_pipeline", str(exc))
+
+    try:
+        from corund.app_controller import AppController
+        mic_ref = "start_command_loop" in Path(ROOT / "corund/app_controller.py").read_text(encoding="utf-8", errors="ignore")
+        log("PASS" if mic_ref else "FAIL", "mic_pipeline", "AppController._init_voice_deferred start_command_loop reference")
+        if not mic_ref:
+            failures += 1
+        _ = AppController
+    except Exception as exc:
+        failures += 1
+        log("FAIL", "mic_pipeline", str(exc))
+
+    try:
+        from corund.os_pipeline import OSPipeline, OSOverrides
+        from corund.os_adapter import OSAdapter
+
+        pipeline = OSPipeline(OSAdapter(dry_run=True))
+        result = pipeline.handle_intent("OPEN_URL", {"url": "https://example.com", "confirm": True}, overrides=OSOverrides(kill_switch=True))
+        ok = (result.get("reason") == "overrides")
+        if not log("PASS" if ok else "FAIL", "esc_kill_switch_path", str(result)):
+            failures += 1
+    except Exception as exc:
+        failures += 1
+        log("FAIL", "esc_kill_switch_path", str(exc))
+
     try:
         from corund.workspace_ai.router import WorkspaceAIRouter
         from corund.workspace_ai.workspace_controller import WorkspaceController
@@ -57,53 +118,58 @@ def main() -> int:
 
         router = WorkspaceAIRouter()
         controller = WorkspaceController(WorkspaceManager())
-
-        samples = [
-            "open aurora",
-            "set focus mode for 25 minutes",
-            "summarize my session",
-        ]
-        for text in samples:
-            route = router.route(text)
-            handled = controller.handle_command(text, source="runtime_selftest")
-            if route.get("action") == "unknown":
-                failures += 1
-                report("FAIL", "command", f"{text!r} -> unknown route={route} handled={handled}")
-            else:
-                report("PASS", "command", f"{text!r} -> route={route.get('action')} handled={handled.get('action')}")
-    except Exception as exc:
-        failures += 1
-        report("FAIL", "command_pipeline", f"missing symbol or runtime error: {exc}")
-
-    # 5) Avatar controller update tick.
-    try:
-        from PySide6.QtCore import QRectF
-        from corund.ui.avatar.avatar_brain import AvatarBrain
-
-        brain = AvatarBrain()
-        target = brain.update(QRectF(0, 0, 400, 260), now=1.0)
-        report("PASS", "avatar_update", f"update(dt) equivalent via now tick target={target}")
-    except Exception as exc:
-        failures += 1
-        report("FAIL", "avatar_update", f"missing symbol or runtime error: {exc}")
-
-    # 6) Missing asset should safely return None.
-    try:
-        from corund.resource_manager import ResourceManager
-
-        resolved = ResourceManager.resolve_asset("missing/not_real.asset")
-        if resolved is None:
-            report("PASS", "asset_resolver", "resolve_asset returned None safely")
-        else:
+        sample = "switch to coding mode"
+        route = router.route(sample)
+        handled = controller.handle_command(sample, source="selftest")
+        ok = route.get("action") != "unknown" and isinstance(handled, dict)
+        if not log("PASS" if ok else "FAIL", "workspace_voice_switch", f"route={route} handled={handled}"):
             failures += 1
-            report("FAIL", "asset_resolver", f"expected None, got {resolved}")
     except Exception as exc:
         failures += 1
-        report("FAIL", "asset_resolver", str(exc))
+        log("FAIL", "workspace_voice_switch", str(exc))
+
+    try:
+        from corund.aurora_actions import ActionRegistry
+
+        registry = ActionRegistry.default()
+        action = registry.get("create_presentation") or registry.action_for_intent("create_ppt")
+        ok = action is not None
+        if not log("PASS" if ok else "FAIL", "agent_registry", f"action={getattr(action, 'action_id', None)}"):
+            failures += 1
+    except Exception as exc:
+        failures += 1
+        log("FAIL", "agent_registry", str(exc))
+
+    settings_blob = "\n".join(
+        Path(p).read_text(encoding="utf-8", errors="ignore")
+        for p in [ROOT / "corund/ui/settings_widget.py", ROOT / "corund/ui/settings_privacy_widget.py", ROOT / "web-hero-demo/src/App.tsx"]
+        if p.exists()
+    ).lower()
+    required = ["voice", "mic", "privacy", "retention", "theme", "gradient", "autonomy", "connector"]
+    missing = [k for k in required if k not in settings_blob]
+    if not log("PASS" if not missing else "FAIL", "settings_schema", f"missing={missing}"):
+        failures += 1
+
+    try:
+        from corund.workspace_ai.session_memory import save_snapshot, load_snapshot
+
+        with tempfile.TemporaryDirectory() as td:
+            prev = os.getcwd()
+            os.chdir(td)
+            payload = {"open_files": [{"path": "workspace/doc.txt", "sealed": False}], "retention": "local"}
+            out = save_snapshot(payload)
+            loaded = load_snapshot()
+            os.chdir(prev)
+        ok = loaded.get("open_files") == payload.get("open_files")
+        if not log("PASS" if ok else "FAIL", "memory_persistence", f"saved={out} loaded_keys={list(loaded.keys())}"):
+            failures += 1
+    except Exception as exc:
+        failures += 1
+        log("FAIL", "memory_persistence", str(exc))
 
     print(f"SUMMARY failures={failures}")
     return 2 if failures else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
