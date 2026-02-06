@@ -3,6 +3,7 @@ set -euo pipefail
 
 MAX_BYTES=$((5 * 1024 * 1024))
 blocked_exts=(png jpg jpeg webp gif wav mp3 mp4 bin gltf glb exe appimage msi dmg zip 7z pdf ttf otf)
+allow_asset_roots=(assets/ core/assets/ corund/assets/)
 
 mode="staged"
 range=""
@@ -33,17 +34,42 @@ fi
 
 [ -z "$staged" ] && exit 0
 
+is_allowlisted_asset_path() {
+  local path="$1"
+  for root in "${allow_asset_roots[@]}"; do
+    if [[ "$path" == "$root"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_blocked_ext() {
+  local ext="$1"
+  for blocked in "${blocked_exts[@]}"; do
+    if [[ "$ext" == "$blocked" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 err=0
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  ext="${file##*.}"
-  ext="${ext,,}"
-  for blocked in "${blocked_exts[@]}"; do
-    if [[ "$ext" == "$blocked" ]]; then
-      echo "[prevent_binaries] blocked extension for new file: $file"
+
+  ext=""
+  if [[ "$file" == *.* ]]; then
+    ext="${file##*.}"
+    ext="${ext,,}"
+  fi
+
+  if [[ -n "$ext" ]] && is_blocked_ext "$ext"; then
+    if ! is_allowlisted_asset_path "$file"; then
+      echo "[prevent_binaries] blocked extension for new file outside allowlist: $file"
       err=1
     fi
-  done
+  fi
 
   if [[ -f "$file" ]]; then
     size=$(wc -c < "$file")
@@ -55,6 +81,6 @@ while IFS= read -r file; do
 done <<< "$staged"
 
 if (( err != 0 )); then
-  echo "[prevent_binaries] commit blocked. Keep binary assets out of git."
+  echo "[prevent_binaries] commit blocked. Keep binary assets out of git (except curated assets under allowlisted folders)."
   exit 1
 fi
