@@ -3,35 +3,37 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
 
 jobs:
-  validate:
+  python-checks:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-desktop.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
-      - name: Compile Python sources
+      - name: Compile all
         run: python -m compileall .
 
-      - name: Run doctor checks
-        run: python tools/etherea_doctor.py
+      - name: Feature audit
+        run: python tools/etherea_feature_audit.py
+
+      - name: Runtime selftest
+        run: python tools/etherea_runtime_selftest.py
 
       - name: Block binary additions
         env:
@@ -42,3 +44,29 @@ jobs:
           else
             bash scripts/prevent_binaries.sh --range "HEAD~1...HEAD"
           fi
+
+      - name: Desktop screenshots (best-effort, offscreen)
+        run: |
+          QT_QPA_PLATFORM=offscreen python scripts/capture_desktop_screenshots.py || true
+
+  web-hero-demo:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-hero-demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+  web-screenshots-manual:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Optional/manual: start web-hero-demo (npm run dev) and run python scripts/capture_web_screenshots.py"

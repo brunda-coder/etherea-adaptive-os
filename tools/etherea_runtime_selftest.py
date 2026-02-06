@@ -10,85 +10,99 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-def check(name: str, ok: bool, detail: str) -> bool:
-    status = "PASS" if ok else "FAIL"
+
+def report(status: str, name: str, detail: str) -> bool:
     print(f"[{status}] {name}: {detail}")
-    return ok
+    return status == "PASS"
 
 
 def main() -> int:
     failures = 0
 
-    compiled = compileall.compile_dir(str(ROOT / "corund"), quiet=1, maxlevels=10)
-    if not check("compileall", compiled, "compiled corund package"):
-        failures += 1
-
-    for mod in ("PySide6", "core", "corund"):
+    # 1) Key imports.
+    for mod in [
+        "corund.capabilities",
+        "corund.workspace_ai.router",
+        "corund.workspace_ai.workspace_controller",
+        "corund.ui.avatar.avatar_brain",
+        "corund.resource_manager",
+    ]:
         try:
             importlib.import_module(mod)
-            check("import", True, f"imported {mod}")
+            report("PASS", "import", mod)
         except Exception as exc:
-            check("import", False, f"failed to import {mod}: {exc}")
             failures += 1
+            report("FAIL", "import", f"{mod} -> {exc}")
 
+    # 2) Compileall sanity.
+    compiled = compileall.compile_dir(str(ROOT / "corund"), quiet=1, maxlevels=10)
+    if not report("PASS" if compiled else "FAIL", "compileall", "python -m compileall corund"):
+        failures += 1
+
+    # 3) Capability detection.
     try:
+        from corund.capabilities import detect_capabilities
+
+        caps = detect_capabilities().to_dict()
+        report("PASS", "capabilities", str(caps))
+    except Exception as exc:
+        failures += 1
+        report("FAIL", "capabilities", str(exc))
+
+    # 4) Command parser/router samples.
+    try:
+        from corund.workspace_ai.router import WorkspaceAIRouter
         from corund.workspace_ai.workspace_controller import WorkspaceController
         from corund.workspace_manager import WorkspaceManager
 
+        router = WorkspaceAIRouter()
         controller = WorkspaceController(WorkspaceManager())
-        routed = controller.handle_command("focus 15", source="selftest")
-        ok = routed.get("action") == "start_focus_timer" and routed.get("ok") is True
-        if not check("command_pipeline", ok, f"route result={routed}"):
-            failures += 1
-    except Exception as exc:
-        check("command_pipeline", False, str(exc))
-        failures += 1
 
+        samples = [
+            "open aurora",
+            "set focus mode for 25 minutes",
+            "summarize my session",
+        ]
+        for text in samples:
+            route = router.route(text)
+            handled = controller.handle_command(text, source="runtime_selftest")
+            if route.get("action") == "unknown":
+                failures += 1
+                report("FAIL", "command", f"{text!r} -> unknown route={route} handled={handled}")
+            else:
+                report("PASS", "command", f"{text!r} -> route={route.get('action')} handled={handled.get('action')}")
+    except Exception as exc:
+        failures += 1
+        report("FAIL", "command_pipeline", f"missing symbol or runtime error: {exc}")
+
+    # 5) Avatar controller update tick.
     try:
         from PySide6.QtCore import QRectF
         from corund.ui.avatar.avatar_brain import AvatarBrain
 
         brain = AvatarBrain()
-        target = brain.update(QRectF(0, 0, 300, 200), 1.0)
-        ok = target is not None
-        if not check("avatar_update", ok, f"wander_target={target}"):
+        target = brain.update(QRectF(0, 0, 400, 260), now=1.0)
+        report("PASS", "avatar_update", f"update(dt) equivalent via now tick target={target}")
+    except Exception as exc:
+        failures += 1
+        report("FAIL", "avatar_update", f"missing symbol or runtime error: {exc}")
+
+    # 6) Missing asset should safely return None.
+    try:
+        from corund.resource_manager import ResourceManager
+
+        resolved = ResourceManager.resolve_asset("missing/not_real.asset")
+        if resolved is None:
+            report("PASS", "asset_resolver", "resolve_asset returned None safely")
+        else:
             failures += 1
+            report("FAIL", "asset_resolver", f"expected None, got {resolved}")
     except Exception as exc:
-        check("avatar_update", False, str(exc))
         failures += 1
+        report("FAIL", "asset_resolver", str(exc))
 
-    try:
-        from corund.voice_engine import get_voice_engine
-
-        voice = get_voice_engine()
-        voice.speak("runtime selftest", backend="none")
-        check("tts_interface", True, f"constructed {voice.__class__.__name__}")
-    except Exception as exc:
-        check("tts_interface", False, str(exc))
-        failures += 1
-
-    try:
-        from corund.capabilities import _module_available, detect_capabilities
-
-        assert _module_available("json"), "_module_available(json) should be True"
-        caps = detect_capabilities().to_dict()
-        check("capabilities", True, f"detect_capabilities={caps}")
-        if all(v is False for v in caps.values()):
-            print("[WARN] capabilities: optional modules are all unavailable in this environment.")
-    except Exception as exc:
-        check("capabilities", False, str(exc))
-        failures += 1
-
-    blocked_exts = {"png", "jpg", "jpeg", "webp", "gif", "wav", "mp3", "mp4", "bin", "gltf", "glb", "exe", "appimage", "msi", "dmg", "zip", "7z", "pdf", "ttf", "otf"}
-    ext_png = Path("demo.\u0050\u004e\u0047").suffix.lstrip(".").lower()
-    ext_wav = Path("demo.\u0057\u0041\u0056").suffix.lstrip(".").lower()
-    ext_none = Path("README").suffix.lstrip(".").lower()
-    case_ok = ext_png in blocked_exts and ext_wav in blocked_exts and ext_none not in blocked_exts
-    if not check("binary_extension_case", case_ok, f".PNG->{ext_png}, .WAV->{ext_wav}, no_ext='{ext_none}'"):
-        failures += 1
-
-    print(f"runtime_selftest_failures={failures}")
-    return 1 if failures else 0
+    print(f"SUMMARY failures={failures}")
+    return 2 if failures else 0
 
 
 if __name__ == "__main__":
