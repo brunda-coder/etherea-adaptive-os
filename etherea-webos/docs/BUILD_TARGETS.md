@@ -24,3 +24,8 @@ npx cap open android
 ```
 
 These flows are scaffolding-ready and must be run on developer machines with SDKs installed.
+
+## CI install policy
+- CI uses `npm install` (lockfile optional) to keep WebOS install/build reproducible without requiring `npm ci`.
+- Optional: you may generate a `package-lock.json` locally later if you want pinned installs for local workflows.
+
