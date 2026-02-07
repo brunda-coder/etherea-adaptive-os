@@ -12,6 +12,8 @@ jobs:
         working-directory: etherea-webos
     steps:
       - uses: actions/checkout@v4
+      - run: bash scripts/no_binaries_check.sh
+        working-directory: .
       - uses: actions/setup-node@v4
         with:
           node-version: 20
