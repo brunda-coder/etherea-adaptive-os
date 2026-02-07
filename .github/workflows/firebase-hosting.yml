@@ -15,14 +15,14 @@ jobs:
         with:
           node-version: 20
       - name: Install/build/selfcheck web app
-        working-directory: etherea-webos/apps/web
+        working-directory: etherea-webos
         run: |
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
           npm install --no-audit --no-fund
-          npm run build
-          npm run selfcheck
+          npm run -w apps/web build
+          npm run -w apps/web selfcheck
       - name: Deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
