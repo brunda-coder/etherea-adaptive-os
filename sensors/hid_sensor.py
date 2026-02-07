@@ -1,10 +1,15 @@
 import time
 import threading
+import statistics
 try:
     import numpy as np
 except Exception:
     np = None  # optional on Termux/CI
-from pynput import mouse, keyboard
+try:
+    from pynput import mouse, keyboard
+except Exception:
+    mouse = None
+    keyboard = None
 from corund.signals import signals
 
 
@@ -35,6 +40,11 @@ class HIDSensor:
         self.kb_listener = None
 
     def start(self):
+        if mouse is None or keyboard is None:
+            raise RuntimeError(
+                "pynput backend is unavailable in this environment; HID listeners cannot start"
+            )
+
         self.running = True
 
         # Start HW listeners
@@ -85,7 +95,10 @@ class HIDSensor:
             # calculate jitter (variance in velocity)
             jitter = 0
             if len(self.mouse_velocities) > 1:
-                jitter = float(np.std(self.mouse_velocities))
+                if np is not None:
+                    jitter = float(np.std(self.mouse_velocities))
+                else:
+                    jitter = float(statistics.pstdev(self.mouse_velocities))
 
             if self.mouse_movement_dist > 0:
                 # Structured event with micro-signals
@@ -98,7 +111,10 @@ class HIDSensor:
             kb_intensity = min(1.0, self.key_presses / 1.0)
             typing_variance = 0
             if len(self.key_intervals) > 1:
-                typing_variance = float(np.std(self.key_intervals))
+                if np is not None:
+                    typing_variance = float(np.std(self.key_intervals))
+                else:
+                    typing_variance = float(statistics.pstdev(self.key_intervals))
 
             if self.key_presses > 0:
                 signals.input_activity.emit("typing", {
