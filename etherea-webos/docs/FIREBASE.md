@@ -1,16 +1,21 @@
-# Firebase Hosting
+# Firebase Hosting (WebOS)
 
-Secrets for GitHub Actions:
-- `FIREBASE_SERVICE_ACCOUNT`
+This repository deploys only the WebOS app from `etherea-webos/apps/web/dist`.
+
+## Required GitHub Secrets
 - `FIREBASE_PROJECT_ID`
+- `FIREBASE_TOKEN` (CI token from `firebase login:ci`)
 
-Local deploy:
-
+## Local setup
 ```bash
-cd etherea-webos/apps/web
-npm install --prefix ../../
-npm run build --prefix ../../ -w @etherea/web
+cd etherea-webos
+npm ci
+npm run build
 firebase login
-firebase use YOUR_FIREBASE_PROJECT_ID
-firebase deploy --only hosting
+firebase use <your-project-id>
+firebase deploy --only hosting --project <your-project-id>
 ```
+
+## Notes
+- Deployment workflow runs only on `push` to `main`.
+- No desktop/android binaries are built in CI.

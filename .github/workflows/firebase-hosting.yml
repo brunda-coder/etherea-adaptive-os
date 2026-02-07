@@ -2,24 +2,29 @@ name: Firebase Hosting Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - 'etherea-webos/**'
+      - '.github/workflows/firebase-hosting.yml'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: etherea-webos/apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install --prefix ../../
-      - run: npm run build --prefix ../../ -w @etherea/web
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Install web dependencies
+        working-directory: etherea-webos
+        run: npm install -w @etherea/core -w @etherea/ui -w @etherea/web
+      - name: Build web app
+        working-directory: etherea-webos
+        run: npm run build
+      - name: Deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          firebaseToken: ${{ secrets.FIREBASE_TOKEN }}
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
           channelId: live
-          entryPoint: etherea-webos/apps/web
+          entryPoint: etherea-webos
