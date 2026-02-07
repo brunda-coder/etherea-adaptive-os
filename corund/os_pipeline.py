@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Dict, Optional
 
@@ -89,12 +90,19 @@ class OSPipeline:
         return {"ok": False, "message": "unknown_intent", "detail": intent}
 
     def _emit(self, event_type: str, payload: Dict[str, object], *, source: str) -> None:
-        self._bus.emit(
-            create_event(
-                event_type,
-                source=source,
-                payload=payload,
-                priority=35,
-                privacy_level="normal",
-            )
+        event = create_event(
+            event_type,
+            source=source,
+            payload=payload,
+            priority=35,
+            privacy_level="normal",
         )
+        coroutine = self._bus.emit(event)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(coroutine)
+            return
+
+        loop.create_task(coroutine)
