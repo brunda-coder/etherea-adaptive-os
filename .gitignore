@@ -47,3 +47,8 @@ yarn-error.log*
 
 # Generated screenshots/artifacts
 artifacts/
+
+# WebOS/mobile build artifacts
+.tauri/
+android/app/build/
+*.apk
