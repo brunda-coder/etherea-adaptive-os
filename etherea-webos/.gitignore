@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.log
+*.local
+.DS_Store
+apps/android-capacitor/android/
+apps/android-capacitor/node_modules/
+apps/desktop-tauri/src-tauri/target/
+
+# strict binary exclusions
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.wav
+*.mp3
+*.ttf
+*.otf
+*.exe
+*.msi
+*.apk
+*.aab
+*.zip
