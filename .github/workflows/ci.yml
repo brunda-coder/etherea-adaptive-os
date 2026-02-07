@@ -16,9 +16,20 @@ on:
       - '.github/workflows/**'
       - '.gitignore'
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NPM_CONFIG_FETCH_RETRIES: 5
+  NPM_CONFIG_FETCH_RETRY_FACTOR: 2
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: 20000
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: 120000
+
 jobs:
   web-and-python-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: WebOS zero-binary guard
@@ -28,11 +39,22 @@ jobs:
           node-version: 20
       - name: WebOS install/build/selfcheck
         run: |
+          set -euo pipefail
           cd etherea-webos
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
-          npm install -w apps/web --no-audit --no-fund
+          for attempt in 1 2 3; do
+            if npm install -w apps/web --no-audit --no-fund; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "npm install failed after ${attempt} attempts" >&2
+              exit 1
+            fi
+            echo "npm install failed (attempt ${attempt}); retrying in 20s..."
+            sleep 20
+          done
           npm run -w apps/web build
           npm run -w apps/web selfcheck
       - uses: actions/setup-python@v5
