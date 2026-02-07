@@ -25,7 +25,10 @@ from corund.ui.theme import get_theme_manager
 from corund.workspace_behaviors import WORKSPACE_BEHAVIORS
 from corund.workspace_registry import WorkspaceType
 from corund.tutorial_overlay import TutorialOverlayStateMachine
+from corund.ui.tutorial_coach_overlay import TutorialCoachOverlay
+from corund.ui.workspace_hub import WorkspaceHubWidget
 from core.emotion import UserState
+from corund.notifications import NotificationManager
 
 
 class EthereaMainWindowV3(QMainWindow):
@@ -64,12 +67,14 @@ class EthereaMainWindowV3(QMainWindow):
 
         self.center_stack = QStackedWidget()
         self.focus_canvas = FocusCanvas()
+        self.workspace_hub = WorkspaceHubWidget(self.app_controller)
         self.settings_panel = SettingsPrivacyWidget()
         self.settings_panel.avatar_settings_changed.connect(self._apply_avatar_settings)
         self.settings_panel.emotion_settings_changed.connect(self._apply_emotion_settings)
         self.settings_panel.voice_settings_changed.connect(self._apply_voice_settings)
         self.demo_panel = DemoModePanel()
         self.center_stack.addWidget(self.focus_canvas)
+        self.center_stack.addWidget(self.workspace_hub)
         self.center_stack.addWidget(self.settings_panel)
         self.center_stack.addWidget(self.demo_panel)
         center_col.addWidget(self.center_stack, 3)
@@ -87,6 +92,8 @@ class EthereaMainWindowV3(QMainWindow):
 
         self.toast_manager = CandyToastManager(self)
         self.tutorial_overlay = TutorialOverlayStateMachine()
+        self.tutorial_coach = TutorialCoachOverlay(self)
+        self.tutorial_coach.setGeometry(100, 100, 480, 180)
         # Spec: home command input is voice-first and visible on the home screen.
         self.home_command_input = EthereaCommandBar(self, app_controller=self.app_controller)
         self.home_command_input.returnPressed.connect(
@@ -132,6 +139,8 @@ class EthereaMainWindowV3(QMainWindow):
         """Handles the selection of a new workspace from the dropdown."""
         if workspace_name and self.app_controller.workspace_registry.get_current().name != workspace_name:
             self.app_controller.switch_workspace(workspace_name)
+        self.center_stack.setCurrentWidget(self.workspace_hub)
+        self.workspace_hub.set_mode(workspace_name)
 
     @Slot(str)
     def on_workspace_changed(self, workspace_name: str):
@@ -192,6 +201,7 @@ class EthereaMainWindowV3(QMainWindow):
         step = self.tutorial_overlay.start()
         self.aurora_bar.status.setText("Aurora · Tutorial")
         self.avatar_panel.dialogue.setText(f"{step.title}: {step.instruction}")
+        self.tutorial_coach.start()
 
     def _handle_escape_kill_switch(self) -> None:
         self._close_overlays()
@@ -262,3 +272,12 @@ class EthereaMainWindowV3(QMainWindow):
         if "dramatic_mode" in settings:
             tts.set_dramatic_mode(settings["dramatic_mode"])
             self.avatar_panel.world.set_dramatic_mode(settings["dramatic_mode"])
+        self.app_controller.voice_manager.configure(
+            voice_enabled=settings.get("enabled"),
+            mic_enabled=settings.get("mic_enabled"),
+            sensitivity=settings.get("sensitivity"),
+        )
+        if "call_me_back" in settings:
+            NotificationManager.instance().set_call_me_back(settings["call_me_back"])
+        if settings.get("speak_demo"):
+            self.app_controller.voice_manager.speak_demo()

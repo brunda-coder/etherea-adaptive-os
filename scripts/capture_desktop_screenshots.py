@@ -16,7 +16,11 @@ def main() -> int:
 
         if ctypes.util.find_library("GL") is None:
             print("SKIPPED: missing system lib (libGL)")
-            print("Manual fallback: run app locally and capture home, command palette, settings/about screens.")
+            print("Manual fallback steps (capture 4 screens):")
+            print("  1) Home screen with Aurora ring + avatar bubble")
+            print("  2) Tutorial overlay with coach marks")
+            print("  3) Workspace hub in Drawing/PDF/Coding mode")
+            print("  4) Settings panel with Connectors + Avatar Diagnostics")
             return 0
     except Exception:
         pass
@@ -44,9 +48,13 @@ def main() -> int:
         app.processEvents()
         window.grab().save(str(artifacts / "02_command_palette.png"))
 
+        window.center_stack.setCurrentWidget(window.workspace_hub)
+        app.processEvents()
+        window.grab().save(str(artifacts / "03_workspace_hub.png"))
+
         window.center_stack.setCurrentWidget(window.settings_panel)
         app.processEvents()
-        window.grab().save(str(artifacts / "03_settings_panel.png"))
+        window.grab().save(str(artifacts / "04_settings_panel.png"))
 
         print(f"Saved screenshots to {artifacts}")
         app.quit()

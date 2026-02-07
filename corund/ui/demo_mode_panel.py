@@ -1,91 +1,83 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget, QTextEdit
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+    QTextEdit,
+)
 
-from corund.ui.juicy_button import JuicyButton
-from corund.resource_manager import ResourceManager
+from corund.agent_registry import AgentRegistry
 
 
 class DemoModePanel(QFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("panel", True)
-        script_resolved = ResourceManager.resolve_asset("assets/demo/demo_script_01.json")
-        self.script_path = Path(script_resolved) if script_resolved else None
+        self.registry = AgentRegistry()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
         header = QHBoxLayout()
-        title = QLabel("Demo Mode")
+        title = QLabel("Agent Works")
         title.setObjectName("TitleText")
         self.status = QLabel("Idle")
-        self.status.setStyleSheet("color:#8a90b8;")
-        header.addWidget(title)
-        header.addStretch(1)
-        header.addWidget(self.status)
+        header.addWidget(title); header.addStretch(1); header.addWidget(self.status)
         layout.addLayout(header)
 
-        self.steps = QListWidget()
-        self.steps.setMinimumHeight(140)
-        layout.addWidget(self.steps)
+        self.task_input = QLineEdit("AI in Education")
+        self.task_input.setPlaceholderText("Requested task topic/path")
+        layout.addWidget(self.task_input)
 
-        controls = QHBoxLayout()
-        self.start_btn = JuicyButton("Start Demo")
-        self.next_btn = JuicyButton("Next", variant="secondary")
-        self.prev_btn = JuicyButton("Back", variant="secondary")
-        controls.addWidget(self.start_btn)
-        controls.addWidget(self.prev_btn)
-        controls.addWidget(self.next_btn)
-        layout.addLayout(controls)
+        btns = QHBoxLayout()
+        self.btn_ppt = QPushButton("Create PPT Plan")
+        self.btn_pdf = QPushButton("Summarize PDF")
+        self.btn_notes = QPushButton("Generate Notes")
+        self.btn_pause = QPushButton("Safety Pause")
+        self.btn_cancel = QPushButton("Cancel")
+        for b in (self.btn_ppt, self.btn_pdf, self.btn_notes, self.btn_pause, self.btn_cancel):
+            btns.addWidget(b)
+        layout.addLayout(btns)
 
-        self.editor = QTextEdit()
-        self.editor.setPlaceholderText("Demo script JSON will appear here.")
-        layout.addWidget(self.editor, 1)
+        self.requested_task = QLabel("Requested task: -")
+        self.plan_list = QListWidget()
+        self.execution_list = QListWidget()
+        self.output = QTextEdit(); self.output.setReadOnly(True)
+        layout.addWidget(self.requested_task)
+        layout.addWidget(QLabel("Plan")); layout.addWidget(self.plan_list)
+        layout.addWidget(QLabel("Execution steps")); layout.addWidget(self.execution_list)
+        layout.addWidget(self.output)
 
-        self.start_btn.clicked.connect(self._start)
-        self.next_btn.clicked.connect(self._next)
-        self.prev_btn.clicked.connect(self._prev)
+        self.btn_ppt.clicked.connect(lambda: self._run("ppt"))
+        self.btn_pdf.clicked.connect(lambda: self._run("pdf"))
+        self.btn_notes.clicked.connect(lambda: self._run("notes"))
+        self.btn_pause.clicked.connect(lambda: self.status.setText("Paused"))
+        self.btn_cancel.clicked.connect(self._cancel)
 
-        self._load_script()
+    def _run(self, kind: str) -> None:
+        self.status.setText("Running")
+        query = self.task_input.text().strip() or "demo"
+        if kind == "ppt":
+            result = self.registry.create_ppt(query)
+        elif kind == "pdf":
+            result = self.registry.summarize_pdf(query)
+        else:
+            result = self.registry.generate_notes(query)
+        self._render(result)
+        self.status.setText("Done")
 
-    def _load_script(self) -> None:
-        if self.script_path is None or not self.script_path.exists():
-            self.status.setText("Demo assets not installed")
-            self.steps.hide()
-            self.start_btn.setEnabled(False)
-            self.next_btn.setEnabled(False)
-            self.prev_btn.setEnabled(False)
-            self.editor.setPlainText('{\n  "message": "Demo assets not installed"\n}')
-            return
-        self.editor.setPlainText(self.script_path.read_text(encoding="utf-8"))
-        try:
-            data = json.loads(self.editor.toPlainText())
-        except json.JSONDecodeError:
-            return
-        steps = data.get("steps", [])
-        self.steps.clear()
-        for step in steps:
-            title = step.get("title", "Step")
-            moment = step.get("moment", "")
-            self.steps.addItem(f"{title} · {moment}")
+    def _render(self, result) -> None:
+        self.requested_task.setText(f"Requested task: {result.task}")
+        self.plan_list.clear(); self.plan_list.addItems(result.plan)
+        self.execution_list.clear(); self.execution_list.addItems(result.execution_steps)
+        self.output.setPlainText(json.dumps(result.output, indent=2))
 
-    def _start(self) -> None:
-        self.status.setText("Active")
-        if self.steps.count() > 0:
-            self.steps.setCurrentRow(0)
-
-    def _next(self) -> None:
-        row = self.steps.currentRow()
-        if row < self.steps.count() - 1:
-            self.steps.setCurrentRow(row + 1)
-
-    def _prev(self) -> None:
-        row = self.steps.currentRow()
-        if row > 0:
-            self.steps.setCurrentRow(row - 1)
+    def _cancel(self) -> None:
+        self.status.setText("Cancelled")
+        self.plan_list.clear(); self.execution_list.clear(); self.output.clear()
