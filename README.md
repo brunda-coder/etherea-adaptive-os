@@ -123,3 +123,10 @@ Etherea is a living, emotionally intelligent desktop environment that senses foc
 - Assets are manually curated by maintainers.
 - If an expected asset is missing, code must fallback gracefully (no hard crash).
 
+
+## Etherea WebOS Prototype (New)
+
+A complete cross-platform prototype lives in `etherea-webos/` with web (Firebase Hosting), Windows (Tauri), and Android (Capacitor) release pipelines. See:
+- `etherea-webos/docs/EXHIBITION.md`
+- `etherea-webos/docs/FIREBASE.md`
+- `etherea-webos/docs/RELEASES.md`

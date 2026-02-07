@@ -1,0 +1,10 @@
+{
+  "name": "etherea-desktop-tauri",
+  "private": true,
+  "scripts": {
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.2"
+  }
+}
