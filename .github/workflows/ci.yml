@@ -27,14 +27,14 @@ jobs:
         with:
           node-version: 20
       - name: WebOS install/build/selfcheck
-        working-directory: etherea-webos/apps/web
+        working-directory: etherea-webos
         run: |
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
           npm install --no-audit --no-fund
-          npm run build
-          npm run selfcheck
+          npm run -w apps/web build
+          npm run -w apps/web selfcheck
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
