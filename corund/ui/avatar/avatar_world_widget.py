@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import time
 
-from PySide6.QtCore import QElapsedTimer, QPointF, QTimer
+from PySide6.QtCore import QElapsedTimer, QPointF, QTimer, Qt
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView
 
+from corund.avatar_assets import AvatarAssetManifestLoader
 from corund.ui.avatar.avatar_brain import AvatarBrain
 from corund.ui.avatar.avatar_entity import AvatarEntity
 from corund.ui.avatar.surprises import create_sparkle_burst
@@ -25,6 +26,9 @@ class AvatarWorldWidget(QGraphicsView):
         self.brain = AvatarBrain()
         self.entity = AvatarEntity(radius=36.0)
         self.scene.addItem(self.entity)
+
+        self.manifest = AvatarAssetManifestLoader().load()
+        self.movement_mode = "wander"
 
         self._free_roam = True
         self._freeze = False
@@ -50,6 +54,27 @@ class AvatarWorldWidget(QGraphicsView):
         rect = self.viewport().rect()
         self.setSceneRect(0, 0, rect.width(), rect.height())
         self.entity.jump_to_bounds_center(self.scene.sceneRect())
+
+    def diagnostics(self) -> dict:
+        return {
+            "assets_count": self.manifest.total_count,
+            "movement_mode": self.movement_mode,
+            "mood": self.entity.mood,
+        }
+
+    def set_movement_mode(self, mode: str) -> None:
+        self.movement_mode = mode
+        if mode == "follow":
+            self._free_roam = False
+        elif mode == "locked":
+            self._free_roam = False
+            self.entity.set_target(self.scene.sceneRect().center())
+        else:
+            self._free_roam = True
+            self.entity.set_target(None)
+
+    def set_lip_sync_level(self, value: float) -> None:
+        self.entity.set_mouth_open(value)
 
     def set_free_roam(self, enabled: bool) -> None:
         self._free_roam = enabled
@@ -90,10 +115,26 @@ class AvatarWorldWidget(QGraphicsView):
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if not self._enabled:
             return
+        scene_pos = self.mapToScene(event.position().toPoint())
+        if (scene_pos - self.entity.pos()).manhattanLength() <= self.entity.radius * 2:
+            self.entity.set_dragging(True)
         line = self.brain.on_click()
         self._show_bubble(line)
         self._trigger_surprise()
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self.entity._dragging:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.entity.setPos(scene_pos)
+        elif self.movement_mode == "follow":
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.entity.set_target(scene_pos)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        self.entity.set_dragging(False)
+        super().mouseReleaseEvent(event)
 
     def enterEvent(self, event) -> None:  # noqa: N802
         if not self._enabled:

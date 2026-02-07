@@ -60,6 +60,9 @@ from corund.runtime_diagnostics import RuntimeDiagnostics
 from corund.capabilities import detect_capabilities
 from corund.perf import get_startup_timer, log_startup_report
 from corund.aurora_adaptation import AuroraAdaptationEngine
+from corund.voice_manager import VoiceManager
+from corund.notifications import NotificationManager
+from corund.avatar_assets import required_avatar_assets_missing
 
 if TYPE_CHECKING:
     from corund.voice_engine import VoiceEngine
@@ -74,6 +77,9 @@ class AppController(QObject):
         diagnostics: RuntimeDiagnostics | None = None,
     ) -> None:
         super().__init__()
+        missing_assets = required_avatar_assets_missing()
+        if missing_assets:
+            raise RuntimeError("RESTORE LIST: " + ", ".join(missing_assets))
         self.app = app
         self.safe_mode = safe_mode
         self.diagnostics = diagnostics
@@ -102,11 +108,13 @@ class AppController(QObject):
             log_cb=self.log,
         )
         self.voice_engine: Optional["VoiceEngine"] = None
+        self.voice_manager = VoiceManager()
         self.emotion_engine = get_emotion_engine()
         self.tts_engine = get_tts_engine()
         self._agentic_timer: QTimer | None = None
         self._agentic_started_at: float | None = None
         self._profile_logged = False
+        self._last_callback_notif = 0.0
         self.capabilities = detect_capabilities()
         self.aurora_adaptation = AuroraAdaptationEngine()
 
@@ -172,6 +180,9 @@ class AppController(QObject):
         )
         self.window.aurora_bar.setVisible(rec.visible)
         self.window.aurora_bar.status.setText(f"Aurora · {rec.color.title()}")
+        if time.time() - self._last_callback_notif > 300 and self.ei_engine.state.get("focus", 0.5) < 0.25:
+            if NotificationManager.instance().call_me_back("Focus is drifting. Want me to open Focus Canvas?"):
+                self._last_callback_notif = time.time()
     
     def _run_async_loop(self):
         """Runs the asyncio event loop in a separate thread."""
@@ -261,8 +272,15 @@ class AppController(QObject):
             from corund.voice_engine import get_voice_engine
 
             self.voice_engine = get_voice_engine()
+            self.voice_manager.set_command_callback(lambda cmd: self.execute_user_command(cmd, source="mic"))
+            if self.voice_engine:
+                try:
+                    self.voice_engine.viseme_updated.connect(self.window.avatar_panel.world.set_lip_sync_level)
+                except Exception:
+                    pass
             if self.voice_engine and getattr(self.voice_engine, "has_mic", False):
-                self.voice_engine.start_command_loop()
+                self.voice_manager.configure(mic_enabled=True)
+                self.voice_manager.start_command_loop()
                 self.log("✅ Voice engine started.")
             else:
                 self.log("🔇 Voice engine unavailable (no mic or missing deps).")

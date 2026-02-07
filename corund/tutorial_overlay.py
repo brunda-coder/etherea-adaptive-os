@@ -13,9 +13,10 @@ class TutorialStep:
 class TutorialOverlayStateMachine:
     def __init__(self) -> None:
         self.steps = [
-            TutorialStep("Welcome", "Press this command bar and speak or type a command.", "home_command_input"),
-            TutorialStep("Workspace", "Press this workspace switch and choose Drawing/PDF/Coding.", "workspace_selector"),
-            TutorialStep("Agent", "Press Agent Works to run a dry-run task plan.", "agent_panel"),
+            TutorialStep("Aurora Ring", "This ring reflects your current focus and stress state.", "aurora_ring"),
+            TutorialStep("Command Bar", "Speak or type commands in the home command input.", "home_command_input"),
+            TutorialStep("Workspace", "Use this button to switch between Drawing, PDF, and Coding modes.", "workspace_selector"),
+            TutorialStep("Settings", "Open settings to configure voice, mic, privacy, and connectors.", "settings"),
         ]
         self.index = 0
         self.active = False

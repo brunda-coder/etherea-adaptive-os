@@ -5,8 +5,8 @@ import random
 import time
 from typing import Optional
 
-from PySide6.QtCore import QPointF, QRectF, QSizeF, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
+from PySide6.QtCore import QPointF, QRectF
+from PySide6.QtGui import QFont, QFontMetrics, QPainter, QColor
 from PySide6.QtWidgets import QGraphicsObject
 
 from corund.ui.avatar.avatar_renderer import AvatarRenderer
@@ -28,7 +28,7 @@ class SpeechBubbleItem(QGraphicsObject):
 
     def boundingRect(self) -> QRectF:  # noqa: N802
         metrics = QFontMetrics(self._font)
-        text_rect = metrics.boundingRect(0, 0, 220, 80, Qt.TextWordWrap, self._text)
+        text_rect = metrics.boundingRect(0, 0, 220, 80, 0, self._text)
         width = text_rect.width() + self._padding * 2
         height = text_rect.height() + self._padding * 2
         return QRectF(0, 0, width, height)
@@ -44,7 +44,7 @@ class SpeechBubbleItem(QGraphicsObject):
         painter.drawRoundedRect(rect, 10, 10)
         painter.setFont(self._font)
         painter.setPen(QColor(60, 30, 90))
-        painter.drawText(rect.adjusted(self._padding, self._padding, -self._padding, -self._padding), Qt.TextWordWrap, self._text)
+        painter.drawText(rect.adjusted(self._padding, self._padding, -self._padding, -self._padding), 0, self._text)
         painter.restore()
 
 
@@ -58,13 +58,14 @@ class AvatarEntity(QGraphicsObject):
         self.max_force = 220.0
         self._pulse = 0.0
         self._blink_phase = random.random() * math.tau
+        self._mouth_open = 0.1
         self._renderer = AvatarRenderer()
         self._target: Optional[QPointF] = None
         self._freeze = False
         self._reduce_motion = False
         self._free_roam = True
+        self._dragging = False
         self.mood = "calm"
-        self._last_update = time.time()
 
         self.bubble = SpeechBubbleItem(parent=self)
         self.bubble.setPos(-self.radius, -self.radius * 2.2)
@@ -75,6 +76,12 @@ class AvatarEntity(QGraphicsObject):
 
     def set_target(self, target: Optional[QPointF]) -> None:
         self._target = target
+
+    def set_dragging(self, dragging: bool) -> None:
+        self._dragging = dragging
+
+    def set_mouth_open(self, value: float) -> None:
+        self._mouth_open = max(0.0, min(1.0, value))
 
     def set_freeze(self, freeze: bool) -> None:
         self._freeze = freeze
@@ -91,10 +98,10 @@ class AvatarEntity(QGraphicsObject):
     def paint(self, painter: QPainter, option, widget=None) -> None:  # noqa: ANN001
         rect = self.boundingRect()
         blink = abs(math.sin(self._blink_phase))
-        self._renderer.paint(painter, rect, self._pulse, self.mood, blink)
+        self._renderer.paint(painter, rect, self._pulse, self.mood, blink, self._mouth_open)
 
     def tick(self, dt: float, bounds: QRectF, wander_target: Optional[QPointF]) -> None:
-        if self._freeze:
+        if self._freeze or self._dragging:
             return
 
         if not self._reduce_motion:
@@ -102,7 +109,6 @@ class AvatarEntity(QGraphicsObject):
             self._blink_phase += dt * 6.0
 
         target = self._target or (wander_target if self._free_roam else None)
-
         steering = QPointF(0.0, 0.0)
         if target is not None:
             desired = QPointF(target.x() - self.x(), target.y() - self.y())
@@ -130,21 +136,8 @@ class AvatarEntity(QGraphicsObject):
             self.velocity = _scale(self.velocity, self.max_speed / speed)
 
         new_pos = _add(QPointF(self.x(), self.y()), _scale(self.velocity, dt))
-
-        if new_pos.x() - self.radius < bounds.left():
-            new_pos.setX(bounds.left() + self.radius)
-            self.velocity.setX(-self.velocity.x() * 0.6)
-        elif new_pos.x() + self.radius > bounds.right():
-            new_pos.setX(bounds.right() - self.radius)
-            self.velocity.setX(-self.velocity.x() * 0.6)
-
-        if new_pos.y() - self.radius < bounds.top():
-            new_pos.setY(bounds.top() + self.radius)
-            self.velocity.setY(-self.velocity.y() * 0.6)
-        elif new_pos.y() + self.radius > bounds.bottom():
-            new_pos.setY(bounds.bottom() - self.radius)
-            self.velocity.setY(-self.velocity.y() * 0.6)
-
+        new_pos.setX(max(bounds.left() + self.radius, min(bounds.right() - self.radius, new_pos.x())))
+        new_pos.setY(max(bounds.top() + self.radius, min(bounds.bottom() - self.radius, new_pos.y())))
         self.setPos(new_pos)
         self.update()
 

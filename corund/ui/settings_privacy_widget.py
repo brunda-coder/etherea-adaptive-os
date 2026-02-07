@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -45,6 +46,7 @@ class SettingsPrivacyWidget(QFrame):
         tabs.addTab(self._build_emotion_tab(), "Emotion")
         tabs.addTab(self._build_voice_tab(), "Voice")
         tabs.addTab(self._build_privacy_tab(), "Privacy")
+        tabs.addTab(self._build_connectors_tab(), "Connectors")
         layout.addWidget(tabs)
 
     def _build_appearance_tab(self) -> QWidget:
@@ -157,13 +159,38 @@ class SettingsPrivacyWidget(QFrame):
 
         self.voice_enabled = JuicyChipButton("Enable Voice")
         self.voice_dramatic = JuicyChipButton("Dramatic Mode")
+        self.mic_enabled = JuicyChipButton("Enable Mic")
+        self.call_me_back = JuicyChipButton("Call me back notifications")
+        self.voice_sensitivity = QSlider(Qt.Horizontal)
+        self.voice_demo = QPushButton("Speak Demo")
+        self.voice_sensitivity.setRange(1, 100)
+        self.voice_sensitivity.setValue(50)
 
-        for chip in (self.voice_enabled, self.voice_dramatic):
+        for chip in (self.voice_enabled, self.voice_dramatic, self.mic_enabled, self.call_me_back):
             chip.clicked.connect(self._update_voice_settings)
             layout.addWidget(chip)
 
+        layout.addWidget(self.voice_demo)
+        self.voice_demo.clicked.connect(self._speak_demo)
+        layout.addWidget(QLabel("Voice sensitivity"))
+        layout.addWidget(self.voice_sensitivity)
+        self.voice_sensitivity.valueChanged.connect(self._update_voice_settings)
         layout.addStretch(1)
         return widget
+
+
+    def _build_connectors_tab(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(10)
+        layout.addWidget(QLabel("Connector placeholders (no secrets stored in repo):"))
+        for name in ["Google Drive", "GitHub", "Calendar", "Spotify", "Google Photos"]:
+            layout.addWidget(JuicyChipButton(f"{name} connector"))
+        layout.addStretch(1)
+        return widget
+
+    def _speak_demo(self) -> None:
+        self.voice_settings_changed.emit({"speak_demo": True})
 
     def _update_theme(self) -> None:
         theme = get_theme_manager()
@@ -209,5 +236,8 @@ class SettingsPrivacyWidget(QFrame):
             {
                 "enabled": self.voice_enabled.isChecked(),
                 "dramatic_mode": self.voice_dramatic.isChecked(),
+                "mic_enabled": self.mic_enabled.isChecked(),
+                "call_me_back": self.call_me_back.isChecked(),
+                "sensitivity": self.voice_sensitivity.value() / 100.0,
             }
         )

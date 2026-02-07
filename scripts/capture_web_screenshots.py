@@ -13,6 +13,7 @@ async def main() -> int:
         from playwright.async_api import async_playwright
     except Exception as exc:
         print(f"SKIPPED: playwright not installed ({exc})")
+        print("Install steps: pip install playwright && python -m playwright install chromium")
         return 0
 
     async with async_playwright() as p:
