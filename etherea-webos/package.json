@@ -1,0 +1,23 @@
+{
+  "name": "etherea-webos",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "apps/desktop-tauri",
+    "apps/android-capacitor",
+    "packages/core",
+    "packages/ui"
+  ],
+  "scripts": {
+    "build": "npm run build -w @etherea/web && npm run build -w @etherea/core && npm run build -w @etherea/ui",
+    "lint": "npm run lint -w @etherea/web && npm run lint -w @etherea/core && npm run lint -w @etherea/ui",
+    "typecheck": "npm run typecheck -w @etherea/web && npm run typecheck -w @etherea/core && npm run typecheck -w @etherea/ui",
+    "test": "npm run test -w @etherea/core",
+    "selfcheck": "node scripts/selfcheck.mjs",
+    "binary-guard": "node scripts/binary-guard.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

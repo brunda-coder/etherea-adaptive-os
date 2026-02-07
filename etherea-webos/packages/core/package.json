@@ -1,0 +1,16 @@
+{
+  "name": "@etherea/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "echo 'lint pass core'",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/tests/*.test.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
