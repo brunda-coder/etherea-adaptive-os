@@ -1,9 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const appPath = path.resolve('apps/web/src/App.tsx');
-const heurPath = path.resolve('packages/core/src/heuristics.ts');
-const regPath = path.resolve('packages/core/src/registry.ts');
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, '..');
+
+const appPath = path.join(repoRoot, 'apps/web/src/App.tsx');
+const heurPath = path.join(repoRoot, 'packages/core/src/heuristics.ts');
+const regPath = path.join(repoRoot, 'packages/core/src/registry.ts');
 const appText = fs.readFileSync(appPath, 'utf8');
 const heurText = fs.readFileSync(heurPath, 'utf8');
 const regText = fs.readFileSync(regPath, 'utf8');
@@ -14,7 +18,7 @@ const checks = [
   ['agent:summarize_pdf structured', regText.includes('summarize_pdf') && regText.includes('summary')],
   ['agent:generate_notes structured', regText.includes('generate_notes') && regText.includes('notes')],
   ['stress/focus heuristic exists', heurText.includes('stressFocus') && heurText.includes('typingRate')],
-  ['mic permission pathway exists', appText.includes('getUserMedia')],
+  ['mic permission pathway exists', appText.includes('getUserMedia') && appText.includes("'requesting'") && appText.includes("'blocked'")],
   ['3d avatar loaded indicator exists', appText.includes('avatar loaded') && appText.includes('THREE.')],
 ];
 

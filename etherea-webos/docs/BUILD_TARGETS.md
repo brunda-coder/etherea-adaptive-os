@@ -1,31 +1,26 @@
 # Manual build targets (not in CI)
 
-CI intentionally avoids Android/Tauri builds due to restricted registry/system dependencies.
+CI intentionally validates WebOS web + desktop Python checks only.
 
 ## Windows desktop (Tauri)
 ```bash
 cd etherea-webos
-npm ci
+npm install --no-audit --no-fund
 npm run build -w @etherea/web
 cd apps/desktop-tauri
-npm ci
+npm install --no-audit --no-fund
 npm run tauri build
 ```
 
 ## Android (Capacitor)
 ```bash
 cd etherea-webos
-npm ci
+npm install --no-audit --no-fund
 npm run build -w @etherea/web
 cd apps/android-capacitor
-npm ci
+npm install --no-audit --no-fund
 npm run sync
 npx cap open android
 ```
 
-These flows are scaffolding-ready and must be run on developer machines with SDKs installed.
-
-## CI install policy
-- CI uses `npm install` (lockfile optional) to keep WebOS install/build reproducible without requiring `npm ci`.
-- Optional: you may generate a `package-lock.json` locally later if you want pinned installs for local workflows.
-
+Run these only on machines with required SDK/toolchains.
