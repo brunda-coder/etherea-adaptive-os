@@ -20,7 +20,7 @@ jobs:
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
-          npm install --no-audit --no-fund
+          npm install -w apps/web --no-audit --no-fund
           npm run -w apps/web build
           npm run -w apps/web selfcheck
       - name: Deploy
