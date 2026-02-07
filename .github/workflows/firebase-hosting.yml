@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 20
       - name: Install/build/selfcheck web app
-        working-directory: etherea-webos
+        working-directory: etherea-webos/apps/web
         run: |
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
