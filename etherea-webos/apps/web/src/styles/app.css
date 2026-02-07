@@ -1,10 +1,12 @@
 :root { font-family: Inter, system-ui, sans-serif; color: #e2e8f0; background: #090b1a; }
 body { margin: 0; }
-.app { padding: 12px; }
+.app { padding: 12px; max-width: 1100px; margin: 0 auto; }
 header { display: flex; gap: 12px; align-items: center; }
 .command { flex: 1; padding: 8px; border-radius: 8px; }
-.top { display: grid; grid-template-columns: 220px 1fr 220px; gap: 12px; align-items: center; }
+.top { display: grid; grid-template-columns: 220px 1fr; gap: 12px; align-items: start; }
 .debug, .tutorial, .agent, .settings, section { background: #10182d; border: 1px solid #243456; border-radius: 10px; padding: 10px; margin-top: 10px; }
 canvas { background: #0d1428; border: 1px solid #3b82f6; border-radius: 6px; }
-.editor { height: 240px; border: 1px solid #334155; }
-button { margin-right: 6px; }
+.editor { height: 240px; border: 1px solid #334155; width: 100%; }
+button { margin-right: 6px; margin-top: 6px; }
+.indicator { color: #93c5fd; font-size: 12px; }
+.files { padding: 6px; background: #1e293b; border-radius: 6px; margin-bottom: 8px; }

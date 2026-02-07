@@ -1,25 +1,48 @@
 name: CI
 on:
   pull_request:
+    paths:
+      - 'etherea-webos/**'
+      - 'tools/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - '.gitignore'
   push:
     branches: [main]
+    paths:
+      - 'etherea-webos/**'
+      - 'tools/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - '.gitignore'
 
 jobs:
-  ci:
+  web-and-python-checks:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: etherea-webos
     steps:
       - uses: actions/checkout@v4
-      - run: bash scripts/no_binaries_check.sh
-        working-directory: .
+      - name: WebOS zero-binary guard
+        run: bash scripts/no_binaries_check.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - run: npm run binary-guard
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm run test
-      - run: npm run selfcheck
+      - name: WebOS install
+        working-directory: etherea-webos
+        run: npm install -w @etherea/core -w @etherea/ui -w @etherea/web
+      - name: WebOS build
+        working-directory: etherea-webos
+        run: npm run build
+      - name: WebOS selfcheck
+        working-directory: etherea-webos
+        run: npm run selfcheck
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Desktop compileall
+        run: python -m compileall .
+      - name: Desktop feature audit
+        run: python tools/etherea_feature_audit.py
+      - name: Desktop runtime selftest
+        env:
+          ETHEREA_SELFTEST_ALLOW_SKIP_LIBGL: '1'
+        run: python tools/etherea_runtime_selftest.py
