@@ -29,25 +29,13 @@ jobs:
         with:
           node-version: 20
       - name: Install/build/selfcheck web app
+        working-directory: etherea-webos/apps/web
         run: |
           set -euo pipefail
-          cd etherea-webos
           npm config set registry https://registry.npmjs.org/
-          npm config set fund false
-          npm config set audit false
-          for attempt in 1 2 3; do
-            if npm install -w apps/web --no-audit --no-fund; then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "npm install failed after ${attempt} attempts" >&2
-              exit 1
-            fi
-            echo "npm install failed (attempt ${attempt}); retrying in 20s..."
-            sleep 20
-          done
-          npm run -w apps/web build
-          npm run -w apps/web selfcheck
+          npm install --no-audit --no-fund
+          npm run build
+          npm run selfcheck
       - name: Deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:

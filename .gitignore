@@ -1,4 +1,5 @@
 # Firebase
+.firebase/
 .firebase/emulators/
 .firebase/hosting.*.cache
 firebase-debug.log
