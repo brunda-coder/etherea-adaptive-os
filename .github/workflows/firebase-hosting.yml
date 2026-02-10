@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
       - name: WebOS zero-binary guard (non-blocking)
         run: |
           set -euo pipefail
@@ -33,22 +34,32 @@ jobs:
           else
             echo "scripts/no_binaries_check.sh not found; skipping binary policy check."
           fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: WebOS install/build/selfcheck
+
+      - name: WebOS install/build/selfcheck (workspace-safe)
         run: |
           set -euo pipefail
-          cd etherea-webos/apps/web
+          cd etherea-webos
+
+          # Configure npm safely at workspace root (prevents ENOWORKSPACES)
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
+
+          # Install at workspace root
           if [ -f package-lock.json ]; then
             npm ci --no-audit --no-fund
           else
             npm install --no-audit --no-fund
           fi
-          npm run build && npm run selfcheck
+
+          # Build + selfcheck ONLY the web workspace
+          npm run build -w @etherea/web
+          npm run selfcheck -w @etherea/web
+
       - name: "Preflight: validate secrets"
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
@@ -63,6 +74,7 @@ jobs:
             echo "::error::Missing required secret: FIREBASE_SERVICE_ACCOUNT_ETHEREA_WORKSPACE"
             exit 1
           fi
+
       - name: Deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
