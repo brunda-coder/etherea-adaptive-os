@@ -2,20 +2,11 @@ name: WebOS Bundle Report
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'etherea-webos/**'
-      - '.github/workflows/**'
-
-concurrency:
-  group: bundle-report-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   bundle-report:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
       - uses: actions/checkout@v4
 
@@ -23,25 +14,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies (workspace root)
+      - name: Install and build analyzer
         run: |
           set -euo pipefail
           cd etherea-webos
-
-          npm config set registry https://registry.npmjs.org/
-          npm config set fund false
-          npm config set audit false
-
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
-          else
-            npm install --no-audit --no-fund
-          fi
-
-      - name: Build with analyzer
-        run: |
-          set -euo pipefail
-          cd etherea-webos
+          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
           npm run analyze -w @etherea/web
 
       - name: Upload bundle report artifact
