@@ -10,9 +10,9 @@
     "packages/ui"
   ],
   "scripts": {
-    "build": "npm run build -w @etherea/web && npm run build -w @etherea/core && npm run build -w @etherea/ui",
-    "lint": "npm run lint -w @etherea/web && npm run lint -w @etherea/core && npm run lint -w @etherea/ui",
-    "typecheck": "npm run typecheck -w @etherea/web && npm run typecheck -w @etherea/core && npm run typecheck -w @etherea/ui",
+    "build": "npm run build -w @etherea/core && npm run build -w @etherea/ui && npm run build -w @etherea/web",
+    "lint": "npm run lint -w @etherea/core && npm run lint -w @etherea/ui && npm run lint -w @etherea/web",
+    "typecheck": "npm run typecheck -w @etherea/core && npm run typecheck -w @etherea/ui && npm run typecheck -w @etherea/web",
     "test": "npm run test -w @etherea/core",
     "selfcheck": "node scripts/selfcheck.mjs",
     "binary-guard": "node scripts/binary-guard.mjs"
