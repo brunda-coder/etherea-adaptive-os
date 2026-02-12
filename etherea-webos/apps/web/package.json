@@ -9,7 +9,8 @@
     "lint": "echo 'lint pass web'",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "selfcheck": "node ../../scripts/selfcheck.mjs"
+    "selfcheck": "node ../../scripts/selfcheck.mjs",
+    "analyze": "ANALYZE=1 vite build"
   },
   "dependencies": {
     "@etherea/core": "file:../../packages/core",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^18.3.5",
     "@types/three": "^0.173.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "rollup-plugin-visualizer": "^5.12.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vite-plugin-pwa": "^0.21.1"
