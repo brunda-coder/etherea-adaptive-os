@@ -44,20 +44,20 @@ jobs:
           set -euo pipefail
           cd etherea-webos
 
-          # Configure npm safely at workspace root (prevents ENOWORKSPACES)
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
 
-          # Install at workspace root
           if [ -f package-lock.json ]; then
             npm ci --no-audit --no-fund
           else
             npm install --no-audit --no-fund
           fi
 
-          # Build + selfcheck ONLY the web workspace
-          npm run build -w @etherea/web
+          # ✅ Build workspace in correct order: core -> ui -> web
+          npm run build
+
+          # ✅ Selfcheck web
           npm run selfcheck -w @etherea/web
 
       - name: "Preflight: validate secrets"
