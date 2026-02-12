@@ -54,7 +54,7 @@ class SettingsPrivacyWidget(QFrame):
         layout = QVBoxLayout(widget)
         layout.setSpacing(10)
 
-        title = QLabel("Theme")
+        title = QLabel("Theme Engine")
         title.setObjectName("TitleText")
         layout.addWidget(title)
 
@@ -62,6 +62,18 @@ class SettingsPrivacyWidget(QFrame):
         self.theme_selector.addItems(["Default Etherea", "Candy"])
         self.theme_selector.currentIndexChanged.connect(self._update_theme)
         layout.addWidget(self.theme_selector)
+
+        self.accent_selector = QComboBox()
+        self.accent_selector.addItems(["Violet", "Cyan", "Rose"])
+        self.accent_selector.currentIndexChanged.connect(self._update_theme)
+        layout.addWidget(QLabel("Accent"))
+        layout.addWidget(self.accent_selector)
+
+        self.gradient_selector = QComboBox()
+        self.gradient_selector.addItems(["Nebula", "Aurora", "Candy Sky"])
+        self.gradient_selector.currentIndexChanged.connect(self._update_theme)
+        layout.addWidget(QLabel("Gradient"))
+        layout.addWidget(self.gradient_selector)
 
         layout.addStretch(1)
         return widget
@@ -77,13 +89,7 @@ class SettingsPrivacyWidget(QFrame):
         self.dyslexia_spacing = JuicyChipButton("Dyslexia Spacing")
         self.minimal_mode = JuicyChipButton("Minimal Mode")
 
-        for chip in (
-            self.reduced_motion,
-            self.high_contrast,
-            self.quiet_mode,
-            self.dyslexia_spacing,
-            self.minimal_mode,
-        ):
+        for chip in (self.reduced_motion, self.high_contrast, self.quiet_mode, self.dyslexia_spacing, self.minimal_mode):
             chip.clicked.connect(self._update_accessibility)
             layout.addWidget(chip)
 
@@ -100,12 +106,7 @@ class SettingsPrivacyWidget(QFrame):
         self.avatar_reduce_motion = JuicyChipButton("Reduce Motion")
         self.avatar_freeze = JuicyChipButton("Freeze Avatar")
 
-        for chip in (
-            self.avatar_enabled,
-            self.avatar_free_roam,
-            self.avatar_reduce_motion,
-            self.avatar_freeze,
-        ):
+        for chip in (self.avatar_enabled, self.avatar_free_roam, self.avatar_reduce_motion, self.avatar_freeze):
             chip.clicked.connect(self._update_avatar_settings)
             layout.addWidget(chip)
 
@@ -126,7 +127,6 @@ class SettingsPrivacyWidget(QFrame):
         for chip in (self.emotion_enabled, self.emotion_camera):
             chip.clicked.connect(self._update_emotion_settings)
             layout.addWidget(chip)
-
         layout.addWidget(self.emotion_local_only)
 
         self.emotion_delete = QPushButton("Delete Emotion Data")
@@ -147,8 +147,8 @@ class SettingsPrivacyWidget(QFrame):
         layout.addWidget(JuicyChipButton("Microphone Access"))
         layout.addWidget(JuicyChipButton("Camera Access"))
         layout.addWidget(JuicyChipButton("Local Logs Only"))
-        layout.addWidget(JuicyChipButton("Offline Mode"))
-        layout.addWidget(QLabel("Local-only processing is always on unless you opt-in."))
+        layout.addWidget(JuicyChipButton("Offline Mode (default)"))
+        layout.addWidget(QLabel("No continuous camera/mic capture is enabled by default."))
         layout.addStretch(1)
         return widget
 
@@ -178,7 +178,6 @@ class SettingsPrivacyWidget(QFrame):
         layout.addStretch(1)
         return widget
 
-
     def _build_connectors_tab(self) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
@@ -197,6 +196,19 @@ class SettingsPrivacyWidget(QFrame):
         selection = self.theme_selector.currentText()
         theme.set_theme("candy" if "Candy" in selection else "default")
 
+        accent = self.accent_selector.currentText()
+        accent_map = {"Violet": "#8b5bff", "Cyan": "#7ee8ff", "Rose": "#ff7aa5"}
+        theme.set_accent(accent_map.get(accent, "#8b5bff"))
+
+        gradient = self.gradient_selector.currentText()
+        gradient_map = {
+            "Nebula": ("#6b7cff", "#8b5bff"),
+            "Aurora": ("#7ee8c7", "#7bd5ff"),
+            "Candy Sky": ("#ff7adf", "#7ee8ff"),
+        }
+        start, end = gradient_map.get(gradient, ("#6b7cff", "#8b5bff"))
+        theme.set_gradient(start, end)
+
     def _update_accessibility(self) -> None:
         theme = get_theme_manager()
         theme.set_accessibility(
@@ -208,22 +220,15 @@ class SettingsPrivacyWidget(QFrame):
         )
 
     def _update_avatar_settings(self) -> None:
-        self.avatar_settings_changed.emit(
-            {
-                "enabled": self.avatar_enabled.isChecked(),
-                "free_roam": self.avatar_free_roam.isChecked(),
-                "reduce_motion": self.avatar_reduce_motion.isChecked(),
-                "freeze": self.avatar_freeze.isChecked(),
-            }
-        )
+        self.avatar_settings_changed.emit({
+            "enabled": self.avatar_enabled.isChecked(),
+            "free_roam": self.avatar_free_roam.isChecked(),
+            "reduce_motion": self.avatar_reduce_motion.isChecked(),
+            "freeze": self.avatar_freeze.isChecked(),
+        })
 
     def _update_emotion_settings(self) -> None:
-        self.emotion_settings_changed.emit(
-            {
-                "enabled": self.emotion_enabled.isChecked(),
-                "camera_opt_in": self.emotion_camera.isChecked(),
-            }
-        )
+        self.emotion_settings_changed.emit({"enabled": self.emotion_enabled.isChecked(), "camera_opt_in": self.emotion_camera.isChecked()})
 
     def _delete_emotion_data(self) -> None:
         self.emotion_settings_changed.emit({"delete_data": True})
@@ -232,12 +237,10 @@ class SettingsPrivacyWidget(QFrame):
         self.emotion_settings_changed.emit({"kill_switch": True})
 
     def _update_voice_settings(self) -> None:
-        self.voice_settings_changed.emit(
-            {
-                "enabled": self.voice_enabled.isChecked(),
-                "dramatic_mode": self.voice_dramatic.isChecked(),
-                "mic_enabled": self.mic_enabled.isChecked(),
-                "call_me_back": self.call_me_back.isChecked(),
-                "sensitivity": self.voice_sensitivity.value() / 100.0,
-            }
-        )
+        self.voice_settings_changed.emit({
+            "enabled": self.voice_enabled.isChecked(),
+            "dramatic_mode": self.voice_dramatic.isChecked(),
+            "mic_enabled": self.mic_enabled.isChecked(),
+            "call_me_back": self.call_me_back.isChecked(),
+            "sensitivity": self.voice_sensitivity.value() / 100.0,
+        })

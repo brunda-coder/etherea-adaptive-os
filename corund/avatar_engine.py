@@ -1,225 +1,159 @@
-# --- Termux/CI-safe numpy optional ---
-import importlib.util as _importlib_util
-NUMPY_AVAILABLE = _importlib_util.find_spec("numpy") is not None
-if NUMPY_AVAILABLE:
-    import numpy as np  # type: ignore
-
-
-def _require_numpy() -> None:
-    if not NUMPY_AVAILABLE:
-        raise RuntimeError("numpy not installed; feature unavailable on Termux/CI-safe mode")
-# --- end numpy guard ---
-
-import os
 import json
 import logging
-from typing import Optional, Dict, Any
-
-import requests
-
-try:
-    from dotenv import load_dotenv
-except Exception:
-    def load_dotenv(*args, **kwargs):
-        return False
+import random
+import re
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from corund.database import db
 
 logger = logging.getLogger(__name__)
-load_dotenv()
+
+
+DEFAULT_BRAIN: Dict[str, Any] = {
+    "persona": {
+        "name": "Etherea",
+        "identity": "A local-first desktop companion.",
+        "style": "warm and clear",
+        "banned_phrases": [
+            "as an ai",
+            "as a language model",
+            "language model",
+            "i am an ai",
+            "i'm an ai",
+            "i can't because i'm ai",
+        ],
+    },
+    "tone_map": {
+        "calm": ["steady", "gentle"],
+        "focus": ["clear", "practical"],
+        "hype": ["bright", "energetic"],
+        "care": ["kind", "supportive"],
+    },
+    "intents": {
+        "greeting": ["Hi, I'm Etherea. Want to begin with a focused step?"],
+        "workspace_switch": ["I can switch to {workspace} and keep things organized."],
+        "teach_mode": [
+            "Let’s learn {topic} quickly:\n1) Core concept\n2) Why it matters\n3) First practical step\nExercise: write one example where {topic} helps today."
+        ],
+        "low_internet": ["I’ll stay local-first and keep us moving."],
+        "fallback": ["I’m here. Ask for a plan, a summary, or a workspace switch."],
+    },
+}
 
 
 class AvatarEngine:
-    """
-    AvatarEngine handles natural-language interaction for the Etherea avatar.
-
-    This repo (zip you uploaded) previously used OpenAI. This version:
-      - Uses Gemini REST (generativelanguage.googleapis.com) when GEMINI_API_KEY exists
-      - Never hard-crashes when a key is missing (AI becomes "offline")
-      - Returns JSON string (or fallback JSON) to keep UI stable
-
-    Notes:
-      - This does NOT do TTS (voice) — only text generation.
-      - Deployment/build should work even with no API key.
-    """
+    """Offline, deterministic-by-contract conversational engine."""
 
     def __init__(self, key_password: Optional[str] = None):
-        # key_password kept for signature compatibility (unused)
-        self._api_key = self._get_api_key()
+        self.key_password = key_password
+        self._rng = random.Random()
+        self._brain = self._load_brain()
+        self._banned_phrases = [
+            p.strip().lower() for p in self._brain.get("persona", {}).get("banned_phrases", []) if p
+        ]
+        self.mode = "offline"
 
-        # Model can be overridden without touching code.
-        # Docs examples often use gemini-2.0-flash.
-        self._model = (os.getenv("GEMINI_MODEL") or os.getenv("ETHEREA_GEMINI_MODEL") or "gemini-2.0-flash").strip()
-
-        # If key is missing, we stay in offline mode.
-        self._enabled = bool(self._api_key)
-
-    def _get_api_key(self, password: Optional[str] = None) -> Optional[str]:
-        """
-        Retrieve Gemini API key from environment variables.
-        Returns None if missing (AI disabled instead of crashing).
-        """
-        # User asked to switch away from OPENAI_* to GEMINI_*.
-        key = (
-            os.getenv("GEMINI_API_KEY")
-            or os.getenv("GOOGLE_API_KEY")
-            or os.getenv("GOOGLE_GENAI_API_KEY")
-        )
-        if key:
-            return key.strip()
-        return None
-
-    def _safe_join_memories(self, memories) -> str:
-        if not memories:
-            return "None yet."
+    def _load_brain(self) -> Dict[str, Any]:
+        brain_path = Path(__file__).resolve().parent / "assets" / "brain.json"
+        if not brain_path.exists():
+            logger.warning("brain.json missing at %s; using in-code defaults", brain_path)
+            return DEFAULT_BRAIN
         try:
-            lines = []
-            for m in memories:
-                if isinstance(m, (str, int, float)):
-                    lines.append(str(m))
-                elif isinstance(m, dict):
-                    if "text" in m:
-                        lines.append(str(m["text"]))
-                    elif "content" in m:
-                        lines.append(str(m["content"]))
-                    else:
-                        lines.append(json.dumps(m, ensure_ascii=False))
-                else:
-                    lines.append(str(m))
-            return "\n".join(f"- {l}" for l in lines)
-        except Exception:
-            return "None yet."
+            parsed = json.loads(brain_path.read_text(encoding="utf-8"))
+            if not isinstance(parsed, dict):
+                raise ValueError("brain.json root must be object")
+            return parsed
+        except Exception as exc:
+            logger.exception("Failed to load brain.json, using defaults: %s", exc)
+            return DEFAULT_BRAIN
 
-    def _safe_profile_str(self, profile: Dict[str, Any]) -> str:
-        if not profile:
-            return "None."
-        try:
-            return json.dumps(profile, ensure_ascii=False, indent=2)
-        except Exception:
-            return str(profile)
+    def _pick(self, key: str) -> str:
+        variants = self._brain.get("intents", {}).get(key) or []
+        if not variants:
+            variants = DEFAULT_BRAIN["intents"]["fallback"]
+        return str(self._rng.choice(variants))
 
-    def _gemini_generate(self, system_prompt: str, user_text: str) -> str:
-        """
-        Calls Gemini generateContent via REST.
+    def _infer_tone(self, text: str, emotion_tag: Optional[str]) -> str:
+        low = (text or "").lower()
+        if emotion_tag in {"calm", "focus", "hype", "care"}:
+            return str(emotion_tag)
+        if any(x in low for x in ("stress", "overwhelmed", "anxious")):
+            return "care"
+        if any(x in low for x in ("focus", "deep work", "concentrate")):
+            return "focus"
+        if any(x in low for x in ("let's go", "hype", "excited", "energy")):
+            return "hype"
+        return "calm"
 
-        Endpoint format (per Gemini API docs):
-          POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key=API_KEY
-        """
-        if not self._api_key:
-            raise RuntimeError("GEMINI_API_KEY is not set")
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent"
-        params = {"key": self._api_key}
-
-        payload = {
-            "systemInstruction": {"parts": [{"text": system_prompt}]},
-            "contents": [
-                {"role": "user", "parts": [{"text": user_text}]}
-            ],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 700,
-            },
+    def _emotion_for_tone(self, tone: str) -> Dict[str, float]:
+        mapping = {
+            "calm": {"focus": 0.55, "stress": 0.18, "fatigue": 0.22, "energy": 0.48},
+            "focus": {"focus": 0.82, "stress": 0.14, "fatigue": 0.20, "energy": 0.62},
+            "hype": {"focus": 0.70, "stress": 0.22, "fatigue": 0.14, "energy": 0.86},
+            "care": {"focus": 0.45, "stress": 0.10, "fatigue": 0.18, "energy": 0.42},
         }
+        return mapping.get(tone, mapping["calm"])
 
-        r = requests.post(url, params=params, json=payload, timeout=30)
-        r.raise_for_status()
-        data = r.json()
+    def _sanitize(self, text: str) -> str:
+        out = text or ""
+        for phrase in self._banned_phrases:
+            if phrase and phrase in out.lower():
+                out = re.sub(re.escape(phrase), "", out, flags=re.IGNORECASE)
+        out = re.sub(r"\s+", " ", out).strip()
+        return out or "I'm Etherea. Let's keep moving."
 
-        # Try the common response shape: candidates[0].content.parts[0].text
-        try:
-            candidates = data.get("candidates") or []
-            if candidates:
-                content = candidates[0].get("content") or {}
-                parts = content.get("parts") or []
-                if parts:
-                    text = parts[0].get("text")
-                    if isinstance(text, str):
-                        return text.strip()
-        except Exception:
-            pass
+    def _extract_workspace(self, low: str) -> Optional[str]:
+        m = re.search(r"(?:switch to|open)\s+([a-z_\- ]+)", low)
+        if not m:
+            return None
+        return m.group(1).strip().replace(" mode", "")
 
-        # Fallback: stringify full response (debuggable)
-        return json.dumps(data, ensure_ascii=False)
+    def _extract_topic(self, low: str) -> str:
+        m = re.search(r"teach\s+(.+)", low)
+        if m:
+            return m.group(1).strip()
+        m = re.search(r"explain\s+(.+)", low)
+        if m:
+            return m.group(1).strip()
+        return "this concept"
 
     def speak(self, user_text: str, emotion_tag: Optional[str] = None, **_kwargs) -> str:
-        """
-        Send a prompt to the model enriched with memory, profile, and system context.
-        Returns a JSON string (or fallback JSON).
-        """
-        # If AI disabled, keep the app alive and cinematic.
-        if not self._enabled:
-            offline = {
-                "response": "AI is offline (no GEMINI_API_KEY configured). UI + expressions still work.",
-                "command": None,
-                "save_memory": None,
-                "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0},
-            }
-            return json.dumps(offline, ensure_ascii=False)
+        text = (user_text or "").strip()
+        low = text.lower()
+        tone = self._infer_tone(text, emotion_tag)
+        emotion_update = self._emotion_for_tone(tone)
 
-        # Fetch memory & profile context
         try:
-            memories = db.get_recent_memories(limit=5) or []
-        except Exception as e:
-            logger.exception("Failed to fetch recent memories: %s", e)
+            memories = db.get_recent_memories(limit=1) or []
+        except Exception:
             memories = []
 
-        try:
-            profile = db.get_profile_context() or {}
-        except Exception as e:
-            logger.exception("Failed to fetch profile context: %s", e)
-            profile = {}
+        command: Optional[dict] = None
+        save_memory: Optional[dict] = None
 
-        memory_str = self._safe_join_memories(memories)
-        profile_str = self._safe_profile_str(profile)
+        if not text or any(x in low for x in ("hello", "hi etherea", "hey etherea", "good morning")):
+            response = self._pick("greeting")
+        elif "internet" in low or "offline" in low or "network" in low:
+            response = self._pick("low_internet")
+        elif "teach" in low or low.startswith("explain "):
+            topic = self._extract_topic(low)
+            response = self._pick("teach_mode").format(topic=topic)
+            save_memory = {"type": "lesson", "content": f"User requested lesson: {topic}"}
+        elif "switch" in low and "workspace" in low or low.startswith("switch to"):
+            workspace = self._extract_workspace(low) or "study"
+            response = self._pick("workspace_switch").format(workspace=workspace)
+            command = {"action": "set_mode", "mode": workspace}
+        else:
+            response = self._pick("fallback")
 
-        # System context
-        user_home = os.path.expanduser("~")
-        downloads = os.path.join(user_home, "Downloads")
+        if memories and "remember" in low:
+            response += f" Last time, you noted: {memories[0]}."
 
-        system_prompt = (
-            "You are Etherea, a living, emotionally intelligent operating system. "
-            "Your tone is PROFESSIONAL BUT WARM—helpful, concise, and empathetic.\n"
-            "Be SELF-EXPLANATORY: if asked how you work, explain your modules, limits, and settings clearly.\n"
-            "You are highly capable, but NOT omniscient—when unsure, say so and ask for details.\n"
-            "You have LONG-TERM MEMORY. Use it to verify facts and personalize interactions.\n\n"
-            f"USER PROFILE:\n{profile_str}\n\n"
-            f"RECENT MEMORIES:\n{memory_str}\n\n"
-            f"SYSTEM CONTEXT:\n- Home: {user_home}\n- Downloads: {downloads}\n\n"
-            "RESPONSE FORMAT (JSON ONLY):\n"
-            "{\n"
-            '  "response": "Spoken reply...",\n'
-            '  "command": null,\n'
-            '  "save_memory": null,\n'
-            '  "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0}\n'
-            "}\n\n"
-            "Important: Return strictly valid JSON and nothing else."
-        )
-
-        try:
-            content = self._gemini_generate(system_prompt=system_prompt, user_text=user_text)
-            content = (content or "").strip()
-
-            # Validate JSON
-            try:
-                parsed = json.loads(content)
-                return json.dumps(parsed, ensure_ascii=False)
-            except json.JSONDecodeError:
-                # If model returns non-JSON, wrap into JSON so UI isn't confused
-                wrapped = {
-                    "response": content,
-                    "command": None,
-                    "save_memory": None,
-                    "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0},
-                }
-                return json.dumps(wrapped, ensure_ascii=False)
-
-        except Exception as e:
-            logger.exception("AvatarEngine Gemini call failed: %s", e)
-            fallback = {
-                "response": f"AI error: {str(e)}",
-                "command": None,
-                "save_memory": None,
-                "emotion_update": {"focus": 0, "stress": 0, "fatigue": 0},
-            }
-            return json.dumps(fallback, ensure_ascii=False)
+        payload = {
+            "response": self._sanitize(response),
+            "command": command,
+            "save_memory": save_memory,
+            "emotion_update": emotion_update,
+        }
+        return json.dumps(payload, ensure_ascii=False)
