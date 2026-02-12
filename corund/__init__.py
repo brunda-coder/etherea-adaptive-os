@@ -2,7 +2,7 @@
 core package exports (safe imports)
 """
 
-# Optional: AvatarEngine may depend on extra libs (dotenv, openai, etc.)
+# Optional: AvatarEngine is loaded defensively so app startup remains resilient.
 try:
     from .avatar_engine import AvatarEngine  # noqa: F401
 except Exception:

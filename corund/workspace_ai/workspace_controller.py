@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
 from corund.workspace_ai.router import WorkspaceAIRouter
+from corund.workspace_ai.safe_file_agent import SafeWorkspaceFileAgent
 from corund.workspace_ai.workspace_ai_hub import WorkspaceAIHub
 
 try:
@@ -32,20 +33,11 @@ class FocusTimerState:
 
 
 class WorkspaceController:
-    """
-    Connects AI routing -> real WorkspaceManager actions.
-
-    Final demo:
-      - unified command pipeline for UI + voice (source tracked)
-      - mode switch emits signals.mode_changed
-      - focus timer emits focus_* signals for UI and avatar persona
-      - self-awareness explain command for professor-friendly output
-    """
-
     def __init__(self, workspace_manager):
         self.wm = workspace_manager
         self.router = WorkspaceAIRouter()
         self.hub = WorkspaceAIHub()
+        self.file_agent = SafeWorkspaceFileAgent()
         self.active_mode = "study"
         self.focus = FocusTimerState()
 
@@ -54,10 +46,8 @@ class WorkspaceController:
         route = self.router.route(t)
         action = route.get("action")
         payload = route.get("payload") or {}
-
         meta = {"source": source, "ts": route.get("ts")}
 
-        # broadcast (new + legacy)
         if signals is not None:
             try:
                 if hasattr(signals, "command_received_ex"):
@@ -67,59 +57,47 @@ class WorkspaceController:
             except Exception:
                 pass
 
-        # ---- greet ----
         if action == "greet":
-            reply = "Hi 👋 I’m Etherea. Tell me a mode (study/coding/exam/calm) or say 'focus 25'."
+            reply = "Hi 👋 I’m Etherea. Tell me a mode (study/coding/exam/calm), 'focus 25', or 'create file notes.md'."
             return {"ok": True, "action": "greet", "reply": reply, "meta": meta}
-
-
         if action == "open_aurora":
             return {"ok": True, "action": "open_aurora", "panel": "aurora", "meta": meta}
-
         if action == "open_workspace":
             return {"ok": True, "action": "open_workspace", "panel": "workspace", "meta": meta}
-
         if action == "open_agent_works":
             return {"ok": True, "action": "open_agent_works", "panel": "agent", "meta": meta}
-
-        # ---- mode switch ----
         if action == "set_mode":
-            mode = str(payload.get("mode", "study"))
-            return self.apply_mode(mode, meta=meta)
-
-        # ---- save session ----
+            return self.apply_mode(str(payload.get("mode", "study")), meta=meta)
         if action == "save_session":
             path = self.wm.save_session()
             return {"ok": True, "action": "save_session", "file": path, "meta": meta}
-
-        # ---- resume session ----
         if action == "resume_session":
             result = self.wm.resume_last_session()
             return {"ok": True, "action": "resume_session", "result": result, "meta": meta}
-
-        # ---- focus timer ----
         if action == "start_focus_timer":
-            minutes = int(payload.get("minutes", 25))
-            return self.start_focus(minutes, meta=meta)
-
+            return self.start_focus(int(payload.get("minutes", 25)), meta=meta)
         if action == "stop_focus_timer":
             return self.stop_focus(meta=meta)
-
-        # ---- summarize text (simple local) ----
         if action == "summarize_text":
-            txt = payload.get("text", "")
-            summary = self._quick_summary(txt)
-            return {"ok": True, "action": "summarize_text", "summary": summary, "meta": meta}
-
-        # ---- self explain ----
+            return {"ok": True, "action": "summarize_text", "summary": self._quick_summary(payload.get("text", "")), "meta": meta}
         if action == "self_explain":
-            if build_self_explain_text is None:
-                explain = self._static_self_explain()
-            else:
-                explain = build_self_explain_text()
+            explain = build_self_explain_text() if build_self_explain_text is not None else self._static_self_explain()
             return {"ok": True, "action": "self_explain", "text": explain, "meta": meta}
 
-        # ---- unknown ----
+        if action == "allow_workspace_root":
+            root = str(payload.get("root", "")).strip()
+            self.file_agent.configure_allowed_roots([root])
+            return {"ok": True, "action": action, "message": f"Allowed workspace root set to {root}", "meta": meta}
+        if action == "create_file":
+            res = self.file_agent.create_file(str(payload.get("path", "")), str(payload.get("content", "")))
+            return {"ok": res.ok, "action": action, "message": res.message, "meta": meta}
+        if action == "edit_file":
+            res = self.file_agent.edit_file(str(payload.get("path", "")), str(payload.get("content", "")))
+            return {"ok": res.ok, "action": action, "message": res.message, "meta": meta}
+        if action == "summarize_file":
+            res = self.file_agent.summarize_file(str(payload.get("path", "")))
+            return {"ok": res.ok, "action": action, "message": res.message, "summary": res.content, "meta": meta}
+
         return {"ok": False, "action": "unknown", "text": t, "meta": meta}
 
     def apply_mode(self, mode: str, *, meta: Optional[dict] = None) -> Dict[str, Any]:
@@ -127,59 +105,43 @@ class WorkspaceController:
         self.active_mode = mode
         profile = self.hub.get_profile(mode) or {}
         plan = self.hub.plan(f"{mode} mode")
-
         try:
             self.wm.active_mode = mode
             self.wm.active_profile = profile
         except Exception:
             pass
-
         if signals is not None and hasattr(signals, "mode_changed"):
             try:
                 signals.mode_changed.emit(mode, meta)
             except Exception:
                 pass
-
-        return {
-            "ok": True,
-            "action": "set_mode",
-            "mode": mode,
-            "profile": profile,
-            "ai_plan": {"mode": getattr(plan, "mode", mode), "tasks": getattr(plan, "tasks", [])},
-            "meta": meta,
-        }
+        return {"ok": True, "action": "set_mode", "mode": mode, "profile": profile, "ai_plan": {"mode": getattr(plan, "mode", mode), "tasks": getattr(plan, "tasks", [])}, "meta": meta}
 
     def start_focus(self, minutes: int, *, meta: Optional[dict] = None) -> Dict[str, Any]:
         meta = meta or {"source": "ui"}
         minutes = max(1, min(240, int(minutes)))
         now = time.time()
         self.focus = FocusTimerState(True, minutes, now, now + minutes * 60)
-
-        # mode hint: deep_work
         try:
             self.apply_mode("deep_work", meta={**meta, "reason": "focus_started"})
         except Exception:
             pass
-
         if signals is not None and hasattr(signals, "focus_started"):
             try:
                 signals.focus_started.emit(minutes, meta)
             except Exception:
                 pass
-
         return {"ok": True, "action": "start_focus_timer", "minutes": minutes, "ends_in_s": minutes * 60, "meta": meta}
 
     def stop_focus(self, *, meta: Optional[dict] = None) -> Dict[str, Any]:
         meta = meta or {"source": "ui"}
         was_running = bool(self.focus.running)
         self.focus.running = False
-
         if signals is not None and hasattr(signals, "focus_stopped"):
             try:
                 signals.focus_stopped.emit({**meta, "was_running": was_running})
             except Exception:
                 pass
-
         return {"ok": True, "action": "stop_focus_timer", "was_running": was_running, "meta": meta}
 
     def focus_seconds_left(self) -> int:
@@ -195,9 +157,8 @@ class WorkspaceController:
     def _static_self_explain(self) -> str:
         return (
             "Etherea is a desktop-first living OS prototype.\n"
-            "- UI: PySide6 (main_window_v2.py) with Avatar + Aurora + Console.\n"
-            "- Workspace: WorkspaceManager + adapters (PDF/code/text) + AI routing.\n"
-            "- Avatar: emotional persona driven by EI signals + mode.\n"
-            "- Voice: STT (SpeechRecognition) + TTS (Edge TTS) routed into the same command pipeline.\n"
-            "Ask: 'study mode', 'coding mode', 'exam mode', 'calm mode', or 'focus 25'."
-)
+            "- UI: PySide6 with Avatar + Aurora + Settings.\n"
+            "- Workspace: WorkspaceManager + local file agent (allowed roots only).\n"
+            "- Avatar: emotion-aware character responses through offline brain.json.\n"
+            "- Voice/Sensors: opt-in controls with kill switch in settings."
+        )

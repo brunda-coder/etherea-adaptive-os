@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
@@ -117,11 +118,16 @@ class AppController(QObject):
         self._last_callback_notif = 0.0
         self.capabilities = detect_capabilities()
         self.aurora_adaptation = AuroraAdaptationEngine()
+        self._command_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="etherea-cmd")
 
         # UI
         from corund.ui.main_window_v3 import EthereaMainWindowV3
 
         self.window = EthereaMainWindowV3(self)
+        try:
+            self.window.set_boot_health(self.get_boot_health())
+        except Exception:
+            pass
 
         self._connect_signals()
 
@@ -346,18 +352,30 @@ class AppController(QObject):
         if self._handle_avatar_commands(cmd):
             return
 
-        try:
-            out = self.ws_controller.handle_command(cmd, source=source)
-            action = out.get("action")
-            if action == "open_workspace":
-                self.window.center_stack.setCurrentWidget(self.window.focus_canvas)
-            elif action == "open_aurora":
-                self.window.aurora_bar.setVisible(True)
-            elif action == "open_agent_works":
-                self.window.center_stack.setCurrentWidget(self.window.demo_panel)
-            self.log(f"✅ OUT: {out}")
-        except Exception as e:
-            self.log(f"❌ command failed: {e}")
+        def _run() -> dict:
+            return self.ws_controller.handle_command(cmd, source=source)
+
+        future = self._command_executor.submit(_run)
+
+        def _deliver() -> None:
+            try:
+                out = future.result(timeout=0.01)
+            except Exception:
+                QTimer.singleShot(20, _deliver)
+                return
+            try:
+                action = out.get("action")
+                if action == "open_workspace":
+                    self.window.center_stack.setCurrentWidget(self.window.focus_canvas)
+                elif action == "open_aurora":
+                    self.window.aurora_bar.setVisible(True)
+                elif action == "open_agent_works":
+                    self.window.center_stack.setCurrentWidget(self.window.demo_panel)
+                self.log(f"✅ OUT: {out}")
+            except Exception as exc:
+                self.log(f"❌ command failed: {exc}")
+
+        QTimer.singleShot(0, _deliver)
 
 
     def emergency_pause_all(self) -> None:
@@ -393,6 +411,17 @@ class AppController(QObject):
             self.log("⬅️ Demo step reversed.")
             return True
         return False
+
+    def get_boot_health(self) -> dict:
+        assets_missing = required_avatar_assets_missing()
+        tts_ok = bool(getattr(self.tts_engine, "enabled", True))
+        return {
+            "avatar": {"ok": len(assets_missing) == 0, "reason": "ready" if not assets_missing else "asset dependency missing"},
+            "assets": {"ok": len(assets_missing) == 0, "reason": "manifest loaded" if not assets_missing else ", ".join(assets_missing[:2])},
+            "audio_tts": {"ok": tts_ok, "reason": "enabled" if tts_ok else "disabled"},
+            "brain": {"mode": "offline"},
+            "sensors": {"enabled": False},
+        }
 
     def _write_log(self, message: str) -> None:
         try:
