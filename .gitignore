@@ -9,6 +9,8 @@ node_modules/
 dist/
 build/
 .vite/
+.turbo/
+.pnpm-store/
 
 # Python
 __pycache__/
@@ -33,10 +35,22 @@ env/
 *.pkg
 *.spec
 release/
+out/
+build_artifacts/
 
 # Logs
 logs/
 *.log
+
+# Runtime exports / workspace junk (MUST NOT COMMIT)
+exports/
+workspace/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.db
+*.sqlite
+*.sqlite3
 
 # General
 .DS_Store
@@ -45,6 +59,7 @@ yarn-debug.log*
 yarn-error.log*
 *.zip
 /archives/
+archive/
 
 # Generated screenshots/artifacts
 artifacts/
@@ -53,3 +68,7 @@ artifacts/
 .tauri/
 android/app/build/
 *.apk
+
+# IDE
+.vscode/
+.idea/
