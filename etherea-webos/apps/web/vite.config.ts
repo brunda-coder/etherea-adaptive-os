@@ -8,10 +8,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
-      // ✅ Fix for your CI error: allow larger files to be precached
-      // Default is 2 MiB; your bundle is ~4.33 MiB
+      // ✅ Workbox precache size fix:
+      // Workbox default is 2 MiB. Your build produced a ~4.33 MiB chunk previously.
+      // This prevents CI/build from failing when a chunk is larger.
       workbox: {
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MiB
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // 8 MiB safety margin
+        cleanupOutdatedCaches: true,
+
+        // Don’t precache sourcemaps / dev leftovers
+        globIgnores: ['**/*.map', '**/assets/*.map'],
       },
 
       manifest: {
@@ -26,12 +31,24 @@ export default defineConfig({
     }),
   ],
 
-  // ✅ Optional but recommended: reduce mega-bundle size (helps PWA + load time)
+  // ✅ Bundle-splitting to reduce "one giant index-*.js"
+  // This is the real fix for keeping chunks smaller and faster to load.
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) return 'vendor';
+          // Split all node_modules first
+          if (id.includes('node_modules')) {
+            // Big known chunks (common bloat culprits)
+            if (id.includes('monaco-editor')) return 'vendor_monaco';
+            if (id.includes('pdfjs-dist')) return 'vendor_pdfjs';
+
+            // Core libs
+            if (id.includes('react')) return 'vendor_react';
+
+            // Everything else
+            return 'vendor';
+          }
         },
       },
     },
