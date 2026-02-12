@@ -43,8 +43,27 @@ class AvatarWorldWidget(QGraphicsView):
         self._tick_timer.timeout.connect(self._tick)
         self._tick_timer.start()
 
+        # Ensure scene bounds are initialized (prevents blank avatar on first show)
+        QTimer.singleShot(0, self._ensure_bounds_ready)
+
         self._last_idle_check = time.time()
         self._last_surprise = 0.0
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._ensure_bounds_ready()
+
+    def _ensure_bounds_ready(self) -> None:
+        """Initialize scene rect when the viewport becomes available."""
+        try:
+            rect = self.viewport().rect()
+            if rect.width() <= 2 or rect.height() <= 2:
+                # Viewport not laid out yet; try again shortly.
+                QTimer.singleShot(50, self._ensure_bounds_ready)
+                return
+            self._sync_bounds()
+        except Exception:
+            QTimer.singleShot(50, self._ensure_bounds_ready)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
@@ -71,69 +90,46 @@ class AvatarWorldWidget(QGraphicsView):
             self.entity.set_target(self.scene.sceneRect().center())
         else:
             self._free_roam = True
-            self.entity.set_target(None)
-
-    def set_lip_sync_level(self, value: float) -> None:
-        self.entity.set_mouth_open(value)
 
     def set_free_roam(self, enabled: bool) -> None:
-        self._free_roam = enabled
-        self.entity.set_free_roam(enabled)
-
-    def set_freeze(self, enabled: bool) -> None:
-        self._freeze = enabled
-        self.entity.set_freeze(enabled)
+        self._free_roam = bool(enabled)
 
     def set_reduce_motion(self, enabled: bool) -> None:
-        self._reduce_motion = enabled
-        self.entity.set_reduce_motion(enabled)
-        self._tick_timer.setInterval(33 if enabled else 16)
+        self._reduce_motion = bool(enabled)
+
+    def set_freeze(self, enabled: bool) -> None:
+        self._freeze = bool(enabled)
+        if self._freeze:
+            self.entity.freeze()
+        else:
+            self.entity.unfreeze()
 
     def set_enabled(self, enabled: bool) -> None:
-        self._enabled = enabled
-        self.setVisible(enabled)
-
-    def set_dramatic_mode(self, enabled: bool) -> None:
-        self.brain.dramatic_mode = enabled
-
-    def set_anchor_target(self, point: QPointF) -> None:
-        self.entity.set_target(point)
-
-    def clear_anchor_target(self) -> None:
-        self.entity.set_target(None)
-
-    def go_to_anchor(self, name: str) -> None:
-        bounds = self.scene.sceneRect()
-        anchors = {
-            "aurora_ring": QPointF(bounds.width() * 0.25, bounds.height() * 0.3),
-            "command_palette": QPointF(bounds.width() * 0.75, bounds.height() * 0.75),
-        }
-        target = anchors.get(name)
-        if target is not None:
-            self.set_anchor_target(target)
+        self._enabled = bool(enabled)
+        self.entity.setVisible(self._enabled)
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if not self._enabled:
             return
-        scene_pos = self.mapToScene(event.position().toPoint())
-        if (scene_pos - self.entity.pos()).manhattanLength() <= self.entity.radius * 2:
+        if event.button() == Qt.LeftButton:
             self.entity.set_dragging(True)
-        line = self.brain.on_click()
-        self._show_bubble(line)
-        self._trigger_surprise()
+            line = self.brain.on_click()
+            self._show_bubble(line)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
-        if self.entity._dragging:
-            scene_pos = self.mapToScene(event.position().toPoint())
-            self.entity.setPos(scene_pos)
-        elif self.movement_mode == "follow":
-            scene_pos = self.mapToScene(event.position().toPoint())
-            self.entity.set_target(scene_pos)
+        if not self._enabled:
+            return
+        if self.entity.dragging:
+            pos = self.mapToScene(event.pos())
+            self.entity.setPos(pos)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
-        self.entity.set_dragging(False)
+        if not self._enabled:
+            return
+        if event.button() == Qt.LeftButton:
+            self.entity.set_dragging(False)
         super().mouseReleaseEvent(event)
 
     def enterEvent(self, event) -> None:  # noqa: N802
