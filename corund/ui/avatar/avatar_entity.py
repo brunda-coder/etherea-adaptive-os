@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import random
-import time
 from typing import Optional
 
 from PySide6.QtCore import QPointF, QRectF
@@ -57,7 +56,10 @@ class AvatarEntity(QGraphicsObject):
         self.max_speed = 120.0
         self.max_force = 220.0
         self._pulse = 0.0
-        self._blink_phase = random.random() * math.tau
+        self._blink_value = 0.0
+        self._blink_active = False
+        self._blink_elapsed = 0.0
+        self._next_blink_in = random.uniform(5.0, 9.0)
         self._mouth_open = 0.1
         self._renderer = AvatarRenderer()
         self._target: Optional[QPointF] = None
@@ -69,6 +71,10 @@ class AvatarEntity(QGraphicsObject):
 
         self.bubble = SpeechBubbleItem(parent=self)
         self.bubble.setPos(-self.radius, -self.radius * 2.2)
+
+    @property
+    def dragging(self) -> bool:
+        return self._dragging
 
     def boundingRect(self) -> QRectF:  # noqa: N802
         size = self.radius * 2
@@ -86,6 +92,12 @@ class AvatarEntity(QGraphicsObject):
     def set_freeze(self, freeze: bool) -> None:
         self._freeze = freeze
 
+    def freeze(self) -> None:
+        self.set_freeze(True)
+
+    def unfreeze(self) -> None:
+        self.set_freeze(False)
+
     def set_reduce_motion(self, reduce_motion: bool) -> None:
         self._reduce_motion = reduce_motion
 
@@ -97,8 +109,27 @@ class AvatarEntity(QGraphicsObject):
 
     def paint(self, painter: QPainter, option, widget=None) -> None:  # noqa: ANN001
         rect = self.boundingRect()
-        blink = abs(math.sin(self._blink_phase))
-        self._renderer.paint(painter, rect, self._pulse, self.mood, blink, self._mouth_open)
+        self._renderer.paint(painter, rect, self._pulse, self.mood, self._blink_value, self._mouth_open)
+
+    def _tick_blink(self, dt: float) -> None:
+        if self._blink_active:
+            self._blink_elapsed += dt
+            duration = 0.18
+            progress = min(1.0, self._blink_elapsed / duration)
+            if progress <= 0.5:
+                self._blink_value = progress * 2.0
+            else:
+                self._blink_value = (1.0 - progress) * 2.0
+            if progress >= 1.0:
+                self._blink_active = False
+                self._blink_elapsed = 0.0
+                self._blink_value = 0.0
+                self._next_blink_in = random.uniform(5.0, 9.0)
+        else:
+            self._next_blink_in -= dt
+            if self._next_blink_in <= 0:
+                self._blink_active = True
+                self._blink_elapsed = 0.0
 
     def tick(self, dt: float, bounds: QRectF, wander_target: Optional[QPointF]) -> None:
         if self._freeze or self._dragging:
@@ -106,7 +137,7 @@ class AvatarEntity(QGraphicsObject):
 
         if not self._reduce_motion:
             self._pulse += dt * 3.2
-            self._blink_phase += dt * 6.0
+        self._tick_blink(dt)
 
         target = self._target or (wander_target if self._free_roam else None)
         steering = QPointF(0.0, 0.0)
