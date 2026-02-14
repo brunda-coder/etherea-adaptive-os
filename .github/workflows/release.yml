@@ -56,6 +56,8 @@ jobs:
 
       - run: npm run build -w @etherea/web
       - run: npm install -w @etherea/desktop-tauri --no-audit --no-fund
+      - run: npm run prebuild -w @etherea/desktop-tauri
+      - run: if (!(Test-Path 'apps/desktop-tauri/src-tauri/icons/icon.ico')) { throw 'src-tauri/icons/icon.ico was not generated.' }
       - run: npm run build -w @etherea/desktop-tauri
       - uses: softprops/action-gh-release@v2
         with:
@@ -87,6 +89,7 @@ jobs:
       - run: npm run build -w @etherea/web
       - run: npm install -w @etherea/android-capacitor --no-audit --no-fund
       - run: npm run sync -w @etherea/android-capacitor
+      - run: test -d apps/android-capacitor/android
       - run: npm run build:apk -w @etherea/android-capacitor
       - uses: softprops/action-gh-release@v2
         with:
