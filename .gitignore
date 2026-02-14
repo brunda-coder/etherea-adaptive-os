@@ -72,3 +72,10 @@ android/app/build/
 # IDE
 .vscode/
 .idea/
+
+# CI-generated cross-platform artifacts
+**/node_modules/
+**/dist/
+**/android/
+**/src-tauri/icons/
+**/*.db

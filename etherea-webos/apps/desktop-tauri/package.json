@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "prebuild": "node scripts/ensure_tauri_icons.mjs",
     "build": "tauri build",
+    "predev": "node scripts/ensure_tauri_icons.mjs",
     "dev": "tauri dev"
   },
   "devDependencies": {
