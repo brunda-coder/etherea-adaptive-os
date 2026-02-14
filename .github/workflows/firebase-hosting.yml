@@ -62,6 +62,15 @@ jobs:
           npm run build -w @etherea/web
           npm run selfcheck -w @etherea/web
 
+      - name: Verify web build output exists
+        run: |
+          set -euo pipefail
+          if [ ! -d "apps/web/dist" ]; then
+            echo "::error::Expected build output missing: etherea-webos/apps/web/dist"
+            exit 1
+          fi
+          echo "Verified build output: etherea-webos/apps/web/dist"
+
       - name: Preflight: validate secrets
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
@@ -89,4 +98,11 @@ jobs:
 
       - name: Deployed URL
         run: |
-          echo "Hosting URL: ${{ steps.deploy.outputs.details_url }}"
+          set -euo pipefail
+          DETAILS_URL="${{ steps.deploy.outputs.details_url }}"
+          if [ -n "$DETAILS_URL" ]; then
+            echo "Hosting details URL: $DETAILS_URL"
+          else
+            echo "Hosting details URL unavailable from action output."
+          fi
+          echo "Expected production site URL: https://etherea-adaptive-os.web.app"

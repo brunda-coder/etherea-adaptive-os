@@ -91,6 +91,11 @@ jobs:
       - run: npm run sync -w @etherea/android-capacitor
       - run: test -d apps/android-capacitor/android
       - run: npm run build:apk -w @etherea/android-capacitor
-      - uses: softprops/action-gh-release@v2
+      - name: Verify APK output exists
+        run: |
+          test -f apps/android-capacitor/android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
         with:
-          files: etherea-webos/apps/android-capacitor/android/app/build/outputs/apk/debug/app-debug.apk
+          name: etherea-android-debug-apk
+          path: etherea-webos/apps/android-capacitor/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
