@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from corund.app_runtime import user_data_dir
 from corund.database import db
 
-_ALLOWED_SUFFIXES = {".md", ".py", ".js", ".java", ".cpp", ".yaml", ".yml", ".mmd", ".txt"}
+_ALLOWED_SUFFIXES = {".md", ".txt", ".py", ".js", ".ts", ".java", ".cpp", ".c", ".json", ".yaml", ".yml", ".mmd", ".mermaid"}
 
 
 @dataclass
@@ -102,3 +102,22 @@ class SafeWorkspaceFileAgent:
         lines = [ln.strip() for ln in raw.splitlines() if ln.strip()][:8]
         summary = "\n".join(f"• {ln[:140]}" for ln in lines) if lines else "• (empty file)"
         return AgentResult(True, "summarize_file", f"Summary for {path.name}", content=summary)
+
+    def list_workspace_files(self, depth: int = 2, limit: int = 80) -> AgentResult:
+        root = self.allowed_roots[0]
+        max_depth = max(1, min(5, int(depth)))
+        items: list[str] = []
+        for path in sorted(root.rglob("*")):
+            try:
+                rel = path.relative_to(root)
+            except ValueError:
+                continue
+            if len(rel.parts) > max_depth:
+                continue
+            if path.is_file() and self._validate_suffix(path):
+                items.append(str(rel))
+            if len(items) >= limit:
+                break
+        if not items:
+            return AgentResult(True, "list_workspace_files", f"No allowed files found in {root}", content="")
+        return AgentResult(True, "list_workspace_files", f"Listed {len(items)} file(s) in {root}", content="\n".join(items))

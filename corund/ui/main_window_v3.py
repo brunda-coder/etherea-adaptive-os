@@ -58,8 +58,10 @@ class EthereaMainWindowV3(QMainWindow):
         self.hud_assets = QLabel("Assets: --")
         self.hud_audio = QLabel("Audio/TTS: --")
         self.hud_brain = QLabel("Brain: OFFLINE")
+        self.hud_agent = QLabel("Workspace Agent: --")
         self.hud_sensors = QLabel("Sensors: OFF")
-        for w in (self.hud_avatar, self.hud_assets, self.hud_audio, self.hud_brain, self.hud_sensors):
+        self.hud_kill = QLabel("Kill: DISENGAGED")
+        for w in (self.hud_avatar, self.hud_assets, self.hud_audio, self.hud_brain, self.hud_agent, self.hud_sensors, self.hud_kill):
             hud_layout.addWidget(w)
         hud_layout.addStretch(1)
         main_layout.addWidget(self.boot_health_hud)
@@ -122,12 +124,15 @@ class EthereaMainWindowV3(QMainWindow):
         assets = status.get("assets", {})
         audio = status.get("audio_tts", {})
         brain = status.get("brain", {})
+        agent = status.get("workspace_agent", {})
         sensors = status.get("sensors", {})
         self.hud_avatar.setText(f"Avatar: {'OK' if avatar.get('ok') else 'FAIL'} ({avatar.get('reason', '-')})")
         self.hud_assets.setText(f"Assets: {'OK' if assets.get('ok') else 'FAIL'} ({assets.get('reason', '-')})")
         self.hud_audio.setText(f"Audio/TTS: {'OK' if audio.get('ok') else 'FAIL'} ({audio.get('reason', '-')})")
         self.hud_brain.setText(f"Brain: {brain.get('mode', 'OFFLINE').upper()}")
+        self.hud_agent.setText(f"Workspace Agent: {'READY' if agent.get('ready') else 'NEEDS ROOT'}")
         self.hud_sensors.setText(f"Sensors: {'ON' if sensors.get('enabled') else 'OFF'}")
+        self.hud_kill.setText(f"Kill: {'ENGAGED' if sensors.get('kill_switch') else 'DISENGAGED'}")
 
     def _bind_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+K"), self, activated=self._focus_command)

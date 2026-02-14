@@ -41,6 +41,10 @@ class WorkspaceAIRouter:
         if summarize_file:
             return self._action("summarize_file", {"path": summarize_file.group(1)})
 
+        list_files = re.match(r"^list workspace files(?:\s+depth\s+(\d+))?$", t, flags=re.IGNORECASE)
+        if list_files:
+            return self._action("list_workspace_files", {"depth": int(list_files.group(1) or 2)})
+
         if low.startswith("switch to "):
             raw = low.replace("switch to ", "", 1).replace(" mode", "").strip()
             alias = {"drawing": "study", "pdf": "research", "pdf/office": "research", "office": "research", "coding": "coding"}

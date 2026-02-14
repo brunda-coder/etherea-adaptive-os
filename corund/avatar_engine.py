@@ -31,10 +31,16 @@ DEFAULT_BRAIN: Dict[str, Any] = {
         "care": ["kind", "supportive"],
     },
     "intents": {
-        "greeting": ["Hi, I'm Etherea. Want to begin with a focused step?"],
-        "workspace_switch": ["I can switch to {workspace} and keep things organized."],
+        "greeting": [
+            "Hi, I'm Etherea. Want to begin with a focused step?",
+            "Welcome back. I can map the next 20 minutes into clear steps.",
+        ],
+        "workspace_switch": [
+            "I can switch to {workspace} and keep things organized.",
+            "Switching to {workspace}. I'll keep it clean and distraction-light.",
+        ],
         "teach_mode": [
-            "Let’s learn {topic} quickly:\n1) Core concept\n2) Why it matters\n3) First practical step\nExercise: write one example where {topic} helps today."
+            "Mini-lesson on {topic}:\n1) Core concept\n2) Why it matters\nExample: one real-world use\nQuestions: a) what changes if assumptions fail? b) what metric proves success?\nExercise: write a 4-line implementation sketch for {topic}.",
         ],
         "low_internet": ["I’ll stay local-first and keep us moving."],
         "fallback": ["I’m here. Ask for a plan, a summary, or a workspace switch."],
