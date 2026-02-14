@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -64,6 +65,7 @@ from corund.aurora_adaptation import AuroraAdaptationEngine
 from corund.voice_manager import VoiceManager
 from corund.notifications import NotificationManager
 from corund.avatar_assets import required_avatar_assets_missing
+from corund.avatar_engine import AvatarEngine
 
 if TYPE_CHECKING:
     from corund.voice_engine import VoiceEngine
@@ -112,6 +114,7 @@ class AppController(QObject):
         self.voice_manager = VoiceManager()
         self.emotion_engine = get_emotion_engine()
         self.tts_engine = get_tts_engine()
+        self.avatar_engine = AvatarEngine()
         self._agentic_timer: QTimer | None = None
         self._agentic_started_at: float | None = None
         self._profile_logged = False
@@ -353,17 +356,40 @@ class AppController(QObject):
             return
 
         def _run() -> dict:
-            return self.ws_controller.handle_command(cmd, source=source)
+            mood = getattr(self.window.avatar_panel, "emotion_tag", "calm")
+            brain_raw = self.avatar_engine.speak(cmd, emotion_tag=mood)
+            try:
+                brain = json.loads(brain_raw)
+            except Exception:
+                brain = {
+                    "response": "I hit a local parsing hiccup, but I can still run your command.",
+                    "command": None,
+                    "save_memory": None,
+                    "emotion_update": {"focus": 0.55, "stress": 0.2, "energy": 0.5},
+                }
+            routed = self.ws_controller.handle_command(cmd, source=source)
+            return {"brain": brain, "router": routed}
 
         future = self._command_executor.submit(_run)
 
         def _deliver() -> None:
             try:
-                out = future.result(timeout=0.01)
+                merged = future.result(timeout=0.01)
             except Exception:
                 QTimer.singleShot(20, _deliver)
                 return
             try:
+                brain = merged.get("brain") or {}
+                out = merged.get("router") or {}
+                emotion = brain.get("emotion_update")
+                if isinstance(emotion, dict):
+                    signals.emotion_updated.emit(emotion)
+                response = str(brain.get("response", "")).strip()
+                if response:
+                    self.window.avatar_panel.dialogue.setText(f"“{response}”")
+                if brain.get("save_memory"):
+                    self.window.toast_manager.show_toast("Memory saved locally.")
+
                 action = out.get("action")
                 if action == "open_workspace":
                     self.window.center_stack.setCurrentWidget(self.window.focus_canvas)
@@ -371,8 +397,15 @@ class AppController(QObject):
                     self.window.aurora_bar.setVisible(True)
                 elif action == "open_agent_works":
                     self.window.center_stack.setCurrentWidget(self.window.demo_panel)
+
+                if out.get("ok"):
+                    self.window.toast_manager.show_toast(str(out.get("message") or "Action completed."))
+                elif out.get("action") != "unknown":
+                    self.window.toast_manager.show_toast(str(out.get("message") or "Action failed."), tone="danger")
                 self.log(f"✅ OUT: {out}")
             except Exception as exc:
+                self.window.avatar_panel.dialogue.setText("“I hit a small local error. Try that once more and I’ll keep it simple.”")
+                self.window.toast_manager.show_toast("Could not complete that action.", tone="danger")
                 self.log(f"❌ command failed: {exc}")
 
         QTimer.singleShot(0, _deliver)
@@ -415,12 +448,15 @@ class AppController(QObject):
     def get_boot_health(self) -> dict:
         assets_missing = required_avatar_assets_missing()
         tts_ok = bool(getattr(self.tts_engine, "enabled", True))
+        has_workspace_root = bool(getattr(self.ws_controller.file_agent, "allowed_roots", []))
+        sensors_kill = bool(getattr(getattr(self.emotion_engine, "privacy", None), "state", None) and self.emotion_engine.privacy.state.kill_switch)
         return {
-            "avatar": {"ok": len(assets_missing) == 0, "reason": "ready" if not assets_missing else "asset dependency missing"},
-            "assets": {"ok": len(assets_missing) == 0, "reason": "manifest loaded" if not assets_missing else ", ".join(assets_missing[:2])},
-            "audio_tts": {"ok": tts_ok, "reason": "enabled" if tts_ok else "disabled"},
+            "avatar": {"ok": len(assets_missing) == 0, "reason": "ready" if not assets_missing else "fallback avatar enabled"},
+            "assets": {"ok": len(assets_missing) == 0, "reason": "manifest loaded" if not assets_missing else "missing files: " + ", ".join(assets_missing[:2])},
+            "audio_tts": {"ok": tts_ok, "reason": "enabled" if tts_ok else "disabled by user"},
             "brain": {"mode": "offline"},
-            "sensors": {"enabled": False},
+            "workspace_agent": {"ready": has_workspace_root},
+            "sensors": {"enabled": False, "kill_switch": sensors_kill},
         }
 
     def _write_log(self, message: str) -> None:

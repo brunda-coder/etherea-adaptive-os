@@ -97,8 +97,11 @@ class WorkspaceController:
         if action == "summarize_file":
             res = self.file_agent.summarize_file(str(payload.get("path", "")))
             return {"ok": res.ok, "action": action, "message": res.message, "summary": res.content, "meta": meta}
+        if action == "list_workspace_files":
+            res = self.file_agent.list_workspace_files(depth=int(payload.get("depth", 2)))
+            return {"ok": res.ok, "action": action, "message": res.message, "files": res.content, "meta": meta}
 
-        return {"ok": False, "action": "unknown", "text": t, "meta": meta}
+        return {"ok": False, "action": "unknown", "text": t, "message": "I can route workspace, focus, and safe file commands.", "meta": meta}
 
     def apply_mode(self, mode: str, *, meta: Optional[dict] = None) -> Dict[str, Any]:
         meta = meta or {"source": "ui"}

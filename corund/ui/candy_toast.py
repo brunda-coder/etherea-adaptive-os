@@ -1,22 +1,27 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QTimer
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QLabel, QVBoxLayout, QWidget
 
 
 class CandyToast(QFrame):
-    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+    def __init__(self, text: str, tone: str = "info", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("CandyToast")
+        palette = {
+            "info": ("rgba(255, 255, 255, 230)", "#4a1463", "rgba(255, 255, 255, 150)"),
+            "success": ("rgba(222, 255, 238, 235)", "#0f5132", "rgba(61, 220, 151, 180)"),
+            "danger": ("rgba(255, 230, 237, 240)", "#7a1f34", "rgba(255, 107, 107, 190)"),
+        }
+        bg, fg, border = palette.get(tone, palette["info"])
         self.setStyleSheet(
-            """
-            QFrame#CandyToast {
-                background: rgba(255, 255, 255, 230);
+            f"""
+            QFrame#CandyToast {{
+                background: {bg};
                 border-radius: 14px;
-                border: 1px solid rgba(255, 255, 255, 150);
-            }
-            QLabel { color: #4a1463; font-weight: 600; }
+                border: 1px solid {border};
+            }}
+            QLabel {{ color: {fg}; font-weight: 600; }}
             """
         )
         layout = QVBoxLayout(self)
@@ -52,8 +57,8 @@ class CandyToastManager:
     def __init__(self, parent: QWidget) -> None:
         self.parent = parent
 
-    def show_toast(self, text: str) -> None:
-        toast = CandyToast(text, self.parent)
+    def show_toast(self, text: str, tone: str = "info") -> None:
+        toast = CandyToast(text, tone=tone, parent=self.parent)
         start = self.parent.mapToGlobal(self.parent.rect().topRight())
         end = start + QPoint(-toast.sizeHint().width() - 20, 30)
         toast.play(start, end)

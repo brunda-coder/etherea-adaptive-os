@@ -21,14 +21,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: etherea-webos
     steps:
       - uses: actions/checkout@v4
 
       - name: WebOS zero-binary guard (non-blocking)
         run: |
           set -euo pipefail
-          if [ -f scripts/no_binaries_check.sh ]; then
-            if ! bash scripts/no_binaries_check.sh; then
+          if [ -f ../scripts/no_binaries_check.sh ]; then
+            if ! bash ../scripts/no_binaries_check.sh; then
               echo "::warning::Binary policy check reported issues; continuing (non-blocking)."
             fi
           else
@@ -39,28 +42,27 @@ jobs:
         with:
           node-version: 20
 
-      - name: WebOS install/build/selfcheck (workspace-safe)
+      - name: WebOS install
         run: |
           set -euo pipefail
-          cd etherea-webos
-
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
-
           if [ -f package-lock.json ]; then
             npm ci --no-audit --no-fund
           else
             npm install --no-audit --no-fund
           fi
 
-          # ✅ Build workspace in correct order: core -> ui -> web
-          npm run build
-
-          # ✅ Selfcheck web
+      - name: Build core/ui/web
+        run: |
+          set -euo pipefail
+          npm run build -w @etherea/core
+          npm run build -w @etherea/ui
+          npm run build -w @etherea/web
           npm run selfcheck -w @etherea/web
 
-      - name: "Preflight: validate secrets"
+      - name: Preflight: validate secrets
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_SERVICE_ACCOUNT_ETHEREA_WORKSPACE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ETHEREA_WORKSPACE }}
@@ -76,6 +78,7 @@ jobs:
           fi
 
       - name: Deploy
+        id: deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -83,3 +86,7 @@ jobs:
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
           channelId: live
           entryPoint: etherea-webos
+
+      - name: Deployed URL
+        run: |
+          echo "Hosting URL: ${{ steps.deploy.outputs.details_url }}"
