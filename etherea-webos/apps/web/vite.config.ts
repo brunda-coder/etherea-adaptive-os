@@ -13,7 +13,25 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
-        globIgnores: ['**/*.map', '**/assets/*.map'],
+        globIgnores: [
+          '**/*.map',
+          '**/assets/*.map',
+          '**/assets/vendor_monaco-*.js',
+          '**/assets/vendor_pdfjs-*.js',
+        ],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/vendor_(monaco|pdfjs)-.*\.js$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'etherea-large-vendors',
+              expiration: {
+                maxEntries: 6,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
+              },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'Etherea Adaptive OS',
@@ -41,10 +59,11 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          if (id.includes('react')) return 'vendor_react';
+          if (id.includes('@etherea/ui')) return 'vendor_ui';
           if (id.includes('monaco-editor')) return 'vendor_monaco';
           if (id.includes('pdfjs-dist')) return 'vendor_pdfjs';
           if (id.includes('three')) return 'vendor_three';
-          if (id.includes('react')) return 'vendor_react';
           return 'vendor';
         },
       },
