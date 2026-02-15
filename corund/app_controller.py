@@ -81,8 +81,10 @@ class AppController(QObject):
     ) -> None:
         super().__init__()
         missing_assets = required_avatar_assets_missing()
+        self._avatar_assets_missing = list(missing_assets)
         if missing_assets:
-            raise RuntimeError("RESTORE LIST: " + ", ".join(missing_assets))
+            logger_msg = "Avatar assets missing; running with fallback renderer: " + ", ".join(missing_assets)
+            signals.system_log.emit(f"⚠️ {logger_msg}")
         self.app = app
         self.safe_mode = safe_mode
         self.diagnostics = diagnostics
@@ -446,12 +448,12 @@ class AppController(QObject):
         return False
 
     def get_boot_health(self) -> dict:
-        assets_missing = required_avatar_assets_missing()
+        assets_missing = list(self._avatar_assets_missing or required_avatar_assets_missing())
         tts_ok = bool(getattr(self.tts_engine, "enabled", True))
         has_workspace_root = bool(getattr(self.ws_controller.file_agent, "allowed_roots", []))
         sensors_kill = bool(getattr(getattr(self.emotion_engine, "privacy", None), "state", None) and self.emotion_engine.privacy.state.kill_switch)
         return {
-            "avatar": {"ok": len(assets_missing) == 0, "reason": "ready" if not assets_missing else "fallback avatar enabled"},
+            "avatar": {"ok": True, "reason": "ready" if not assets_missing else "fallback avatar enabled"},
             "assets": {"ok": len(assets_missing) == 0, "reason": "manifest loaded" if not assets_missing else "missing files: " + ", ".join(assets_missing[:2])},
             "audio_tts": {"ok": tts_ok, "reason": "enabled" if tts_ok else "disabled by user"},
             "brain": {"mode": "offline"},

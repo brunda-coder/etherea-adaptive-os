@@ -61,6 +61,7 @@ jobs:
           npm run build -w @etherea/ui
           npm run build -w @etherea/web
           npm run selfcheck -w @etherea/web
+          node scripts/selfcheck_webos.mjs
 
       - name: Preflight: verify web build output and Firebase config
         run: |

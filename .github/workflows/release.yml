@@ -32,6 +32,7 @@ jobs:
       - run: npm run build -w @etherea/ui
 
       - run: npm run build -w @etherea/web
+      - run: node scripts/selfcheck_webos.mjs
       - run: cd apps/web/dist && zip -r ../../web-dist.zip .
       - uses: softprops/action-gh-release@v2
         with:
@@ -87,6 +88,7 @@ jobs:
       - run: npm run build -w @etherea/ui
 
       - run: npm run build -w @etherea/web
+      - run: node scripts/selfcheck_webos.mjs
       - run: npm install -w @etherea/android-capacitor --no-audit --no-fund
       - run: npm run sync -w @etherea/android-capacitor
       - run: test -d apps/android-capacitor/android
