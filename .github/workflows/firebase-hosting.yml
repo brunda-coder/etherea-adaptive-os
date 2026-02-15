@@ -62,14 +62,15 @@ jobs:
           npm run build -w @etherea/web
           npm run selfcheck -w @etherea/web
 
-      - name: Verify web build output exists
+      - name: Preflight: verify web build output and Firebase config
         run: |
           set -euo pipefail
-          if [ ! -d "apps/web/dist" ]; then
-            echo "::error::Expected build output missing: etherea-webos/apps/web/dist"
+          if [ ! -f "apps/web/dist/index.html" ]; then
+            echo "::error::Expected build output missing: etherea-webos/apps/web/dist/index.html"
             exit 1
           fi
-          echo "Verified build output: etherea-webos/apps/web/dist"
+          python -c 'import json, pathlib; json.load(open(pathlib.Path("firebase.json"), encoding="utf-8"))'
+          echo "Preflight checks passed: dist/index.html exists and firebase.json is valid JSON"
 
       - name: Preflight: validate secrets
         env:

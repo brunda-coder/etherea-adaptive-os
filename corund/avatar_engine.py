@@ -140,6 +140,8 @@ class AvatarEngine:
 
         if not text or any(x in low for x in ("hello", "hi etherea", "hey etherea", "good morning")):
             response = self._pick("greeting")
+        elif "emotional intelligence" in low or re.search(r"\bei\b", low):
+            response = self._pick("ei_intro")
         elif "internet" in low or "offline" in low or "network" in low:
             response = self._pick("low_internet")
         elif "teach" in low or low.startswith("explain "):
