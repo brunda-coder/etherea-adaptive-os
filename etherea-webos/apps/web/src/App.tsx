@@ -6,7 +6,7 @@ import 'pdfjs-dist/web/pdf_viewer.css';
 import * as monaco from 'monaco-editor';
 import * as THREE from 'three';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 type Mode = 'drawing' | 'pdf' | 'coding';
 type MicState = 'idle' | 'requesting' | 'listening' | 'blocked';
@@ -45,7 +45,7 @@ async function idbGet(store: string, key: string): Promise<string | null> {
   });
 }
 
-function Avatar3D({ mouthOpen }: { mouthOpen: number }) {
+function Avatar3D({ mouthOpen, isTyping, isSpeaking }: { mouthOpen: number; isTyping: boolean; isSpeaking: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const mouthOpenRef = useRef(mouthOpen);
   const [status, setStatus] = useState<'loading avatar' | 'avatar loaded' | 'avatar unavailable (webgl blocked)'>('loading avatar');
@@ -81,6 +81,12 @@ function Avatar3D({ mouthOpen }: { mouthOpen: number }) {
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.8, 32, 32), new THREE.MeshStandardMaterial({ color: '#60a5fa' }));
       scene.add(head);
 
+      const aura = new THREE.Mesh(
+        new THREE.SphereGeometry(0.93, 32, 32),
+        new THREE.MeshBasicMaterial({ color: '#93c5fd', transparent: true, opacity: 0.14 }),
+      );
+      scene.add(aura);
+
       const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.12), new THREE.MeshStandardMaterial({ color: '#ef4444' }));
       mouth.position.y = -0.38;
       scene.add(mouth);
@@ -92,14 +98,32 @@ function Avatar3D({ mouthOpen }: { mouthOpen: number }) {
       scene.add(blinkL, blinkR);
 
       let frame = 0;
+      let nextBlinkAt = 70;
+      let blinkStartAt = -1;
+      const blinkDuration = 6;
       const animate = () => {
         frame += 1;
-        const breathe = 1 + Math.sin(frame / 28) * 0.02;
+        const breathe = 1 + Math.sin(frame / 30) * 0.015;
+        const hover = Math.sin(frame / 65) * 0.02;
         head.scale.setScalar(breathe);
-        const blink = Math.abs(Math.sin(frame / 90));
-        blinkL.scale.y = blink < 0.08 ? 0.1 : 1;
-        blinkR.scale.y = blink < 0.08 ? 0.1 : 1;
+        head.position.y = hover;
+        head.rotation.z = isTyping ? -0.06 : 0;
+
+        if (frame >= nextBlinkAt) {
+          blinkStartAt = frame;
+          nextBlinkAt = frame + 90 + Math.floor(Math.random() * 130);
+        }
+        const blinkProgress = blinkStartAt >= 0 ? (frame - blinkStartAt) / blinkDuration : 2;
+        const blinkY = blinkProgress >= 0 && blinkProgress <= 1 ? Math.max(0.12, Math.abs(1 - blinkProgress * 2)) : 1;
+        blinkL.scale.y = blinkY;
+        blinkR.scale.y = blinkY;
+
+        const speakingPulse = isSpeaking ? 1 + Math.sin(frame / 6) * 0.035 : 1 + Math.sin(frame / 50) * 0.01;
+        aura.scale.setScalar(speakingPulse);
+        (aura.material as THREE.MeshBasicMaterial).opacity = isSpeaking ? 0.23 : 0.12;
         mouth.scale.y = 0.6 + Math.max(0.1, Math.min(10, mouthOpenRef.current)) / 10;
+        head.material.opacity = 0.96 + Math.sin(frame / 90) * 0.03;
+        head.material.transparent = true;
         renderer?.render(scene, camera);
         frameId = requestAnimationFrame(animate);
       };
@@ -127,7 +151,9 @@ export function App() {
   const [mouthOpen, setMouthOpen] = useState(1);
   const [bubble, setBubble] = useState('Avatar ready for guidance.');
   const [voiceOn, setVoiceOn] = useState(true);
-  const [micOn, setMicOn] = useState(true);
+  const [micOn, setMicOn] = useState(false);
+  const [typingActive, setTypingActive] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [micState, setMicState] = useState<MicState>('idle');
   const [micLevel, setMicLevel] = useState(0);
   const [privacy, setPrivacy] = useState(false);
@@ -147,6 +173,7 @@ export function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const textEditorRef = useRef<HTMLTextAreaElement>(null);
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -161,12 +188,16 @@ export function App() {
       const value = Number(storage.load<number>('typing.rate') ?? 0);
       const safeValue = Number.isFinite(value) ? value : 0;
       storage.save('typing.rate', Math.min(100, safeValue + 2));
+      setTypingActive(true);
+      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = window.setTimeout(() => setTypingActive(false), 650);
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('keydown', onType);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('keydown', onType);
+      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
     };
   }, []);
 
@@ -246,9 +277,15 @@ export function App() {
   }, [micOn, micState]);
 
   const speakDemo = () => {
-    const text = 'Tutorial guide is active. Drawing, PDF and coding modes are ready.';
+    const text = 'Emotional intelligence is reading signals with care, then responding in a grounded way. Etherea does this offline using safe signals like typing rhythm, focus shifts, and optional local mic cues you control. Want me to show you? I’ll adapt theme + pace.';
     setBubble(text);
-    if (voiceOn && 'speechSynthesis' in window) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    setSpeaking(true);
+    window.setTimeout(() => setSpeaking(false), 4200);
+    if (voiceOn && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = () => setSpeaking(false);
+      speechSynthesis.speak(utterance);
+    }
   };
 
   const draw = (e: ReactMouseEvent<HTMLCanvasElement>) => {
@@ -353,7 +390,7 @@ export function App() {
       <section className="top">
         <AuroraRing stress={stress} />
         <div>
-          <Avatar3D mouthOpen={mouthOpen} />
+          <Avatar3D mouthOpen={mouthOpen} isTyping={typingActive} isSpeaking={speaking || micState === 'listening'} />
           <p>{bubble}</p>
           <button onClick={speakDemo}>Speak Demo</button>
           <div className="debug">Stress {stress} Focus {focus} Expression {expression}</div>
@@ -374,7 +411,7 @@ export function App() {
 
       <section className="agent"><h3>Agent Works</h3><select value={agentTask} onChange={(e: any) => setAgentTask(e.target.value as AgentAction)}><option value="create_ppt">create_ppt</option><option value="summarize_pdf">summarize_pdf</option><option value="generate_notes">generate_notes</option></select><button onClick={runAgent}>Run</button><button onClick={() => setAgentState('paused')}>Pause</button><button onClick={() => setAgentState('cancelled')}>Cancel</button><div>Status: {agentState}</div><pre>{agentOutput}</pre></section>
 
-      <section className="settings"><h3>Settings</h3><label><input type="checkbox" checked={voiceOn} onChange={(e: any) => setVoiceOn(e.target.checked)} />voice</label><label><input type="checkbox" checked={micOn} onChange={(e: any) => setMicOn(e.target.checked)} />mic</label><label><input type="checkbox" checked={privacy} onChange={(e: any) => setPrivacy(e.target.checked)} />privacy</label><label>sensitivity<input type="range" min={1} max={100} defaultValue={40} /></label><label>memory retention<input type="range" /></label><button onClick={() => storage.clear()}>clear memory</button><select value={theme} onChange={(e: any) => setTheme(e.target.value)}>{themes.map((t) => <option key={t}>{t}</option>)}</select><input placeholder="Gradient creator: #111,#333,#999" /><div>Connectors: Drive, GitHub, Calendar, Spotify (not yet connected)</div><div>Background notifications wired in web sandbox as in-app notices only.</div></section>
+      <section className="settings"><h3>Settings</h3><label><input type="checkbox" checked={voiceOn} onChange={(e: any) => setVoiceOn(e.target.checked)} />voice</label><label><input type="checkbox" checked={micOn} onChange={(e: any) => setMicOn(e.target.checked)} />mic</label><label><input type="checkbox" checked={privacy} onChange={(e: any) => setPrivacy(e.target.checked)} />privacy</label><label>sensitivity<input type="range" min={1} max={100} defaultValue={40} /></label><label>memory retention<input type="range" /></label><button onClick={() => storage.clear()}>clear memory</button><select value={theme} onChange={(e: any) => setTheme(e.target.value)}>{themes.map((t) => <option key={t}>{t}</option>)}</select><input placeholder="Gradient creator: #111,#333,#999" /><div>Connectors: Drive, GitHub, Calendar, Spotify (not yet connected)</div><div>Background notifications wired in web sandbox as in-app notices only.</div><div>Mic and sensors stay off by default until you opt in.</div></section>
       <section>{selfcheck.map((line: string) => <div key={line}>{line}</div>)}</section>
     </div>
   );
