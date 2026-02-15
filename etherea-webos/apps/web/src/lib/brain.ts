@@ -67,11 +67,11 @@ function clampIntensity(value: number) {
 
 function teach(topic: string): string {
   return [
-    `${topic} in one minute.`,
-    'Step 1: define your variables.',
-    'Step 2: inspect the pattern before math.',
-    'Step 3: test with a tiny example.',
-    `Practice: create a ${topic} note in workspace and I will review it.`,
+    `Definition: ${topic} estimates how one variable changes with another so we can predict outcomes.`,
+    'Example: If study hours increase, test scores often rise. Regression helps estimate the slope of that relationship.',
+    'Steps: (1) define target + features, (2) inspect data quality and outliers, (3) split train/test, (4) fit baseline model, (5) evaluate and iterate.',
+    'Check questions: What does the coefficient sign tell you? How do you know if overfitting happened?',
+    'Exercise: Build a tiny dataset with 8 rows, run linear regression, and explain one prediction in plain language.',
   ].join(' ');
 }
 
@@ -120,17 +120,18 @@ export async function speak(input: string): Promise<BrainResult> {
 
   if (/teach\s+regression/i.test(text)) {
     return {
-      response: teach('Regression'),
+      response: sanitize(teach('Regression')),
       command,
       save_memory: { topic: 'regression', used: true },
-      emotion_update: { mood: 'focused', intensity: 0.7 },
+      emotion_update: { mood: 'focused', intensity: 0.72 },
     };
   }
 
   if (/what is emotional intelligence|ei intro|explain ei/i.test(text)) {
     return {
-      response:
+      response: sanitize(
         'Emotional intelligence means noticing state, naming it, then choosing a useful action. Etherea maps your cues to mood, adapts UI motion, and keeps the full loop local by default.',
+      ),
       command,
       save_memory: { topic: 'ei_intro', used: true },
       emotion_update: { mood: 'care', intensity: 0.62 },
