@@ -68,6 +68,7 @@ jobs:
           # Build + selfcheck ONLY the web workspace
           npm run build -w @etherea/web
           npm run selfcheck -w @etherea/web
+          node scripts/selfcheck_webos.mjs
 
       - uses: actions/setup-python@v5
         with:
@@ -83,3 +84,6 @@ jobs:
         env:
           ETHEREA_SELFTEST_ALLOW_SKIP_LIBGL: '1'
         run: python tools/etherea_runtime_selftest.py
+
+      - name: Desktop offline selfcheck
+        run: python scripts/selfcheck_desktop.py
