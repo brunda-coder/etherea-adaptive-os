@@ -26,17 +26,18 @@ const browser = window as Window & {
 let recognition: RecognitionLike | null = null;
 
 export function getVoiceState(): VoiceState {
+  const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
   return {
-    speechSupported: typeof window !== 'undefined' && 'speechSynthesis' in window,
+    speechSupported,
     recognitionSupported: Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition),
-    speaking: typeof window !== 'undefined' && window.speechSynthesis.speaking,
+    speaking: speechSupported && window.speechSynthesis.speaking,
     listening: Boolean(recognition),
   };
 }
 
 function chooseVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find((voice) => /en-US|hi-IN/i.test(voice.lang));
+  const preferred = voices.find((voice) => /en-US|en-GB|hi-IN/i.test(voice.lang));
   return preferred ?? voices[0] ?? null;
 }
 

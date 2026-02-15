@@ -13,7 +13,13 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
-        globIgnores: ['**/*.map', '**/assets/*.map', '**/assets/vendor_monaco-*.js', '**/assets/vendor_three-*.js'],
+        globIgnores: [
+          '**/*.map',
+          '**/assets/*.map',
+          '**/assets/vendor-*.js',
+          '**/assets/vendor_*.js',
+          '**/assets/chunk-large-*.js',
+        ],
       },
       manifest: {
         name: 'Etherea Adaptive OS',
@@ -41,9 +47,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/react')) return 'vendor_react';
-          if (id.includes('node_modules')) return 'vendor';
-          return 'app';
+          if (id.includes('node_modules/react')) return 'vendor-react';
+          if (id.includes('node_modules/vite-plugin-pwa')) return 'vendor-pwa';
+          if (id.includes('node_modules')) return 'vendor-core';
+          return undefined;
         },
       },
     },
