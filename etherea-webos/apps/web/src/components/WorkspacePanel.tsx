@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react';
 import { allowedFile, asFolder } from '../lib/commands';
 import { deleteNode, renameNode, upsertNode, type WorkspaceFile } from '../lib/workspaceStore';
 
-export function WorkspacePanel({ files, onRefresh }: { files: WorkspaceFile[]; onRefresh: () => Promise<void> }) {
+export function WorkspacePanel({
+  files,
+  onRefresh,
+  compact = false,
+}: {
+  files: WorkspaceFile[];
+  onRefresh: () => Promise<void>;
+  compact?: boolean;
+}) {
   const [openPath, setOpenPath] = useState('');
   const [draft, setDraft] = useState('');
   const [query, setQuery] = useState('');
@@ -19,7 +27,7 @@ export function WorkspacePanel({ files, onRefresh }: { files: WorkspaceFile[]; o
   }
 
   return (
-    <section className="card workspace">
+    <section className={`card workspace ${compact ? 'compact' : ''}`}>
       <div className="workspace-left">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search filenames" />
         <button
@@ -48,54 +56,58 @@ export function WorkspacePanel({ files, onRefresh }: { files: WorkspaceFile[]; o
           </div>
         ))}
       </div>
-      <div className="workspace-main">
-        <div className="tabs">{openPath || 'No file open'}</div>
-        <textarea
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            setDirty(true);
-          }}
-          placeholder="Open a file to edit"
-        />
-        <div className="row">
-          <button
-            onClick={async () => {
-              if (!openPath) return;
-              await upsertNode({ path: openPath, content: draft, updatedAt: Date.now(), type: 'file' });
-              setDirty(false);
-              await onRefresh();
+      {!compact && (
+        <div className="workspace-main">
+          <div className="tabs">{openPath || 'No file open'}</div>
+          <textarea
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setDirty(true);
             }}
-          >
-            Save
-          </button>
-          <button
-            onClick={async () => {
-              if (!openPath) return;
-              const next = prompt('Rename path', openPath)?.trim() ?? '';
-              if (!next) return;
-              await renameNode(openPath, next);
-              setOpenPath(next);
-              await onRefresh();
-            }}
-          >
-            Rename
-          </button>
-          <button
-            onClick={async () => {
-              if (!openPath || !confirm(`Delete ${openPath}?`)) return;
-              await deleteNode(openPath);
-              setOpenPath('');
-              setDraft('');
-              setDirty(false);
-              await onRefresh();
-            }}
-          >
-            Delete
-          </button>
+            placeholder="Open a file to edit"
+          />
+          <div className="row">
+            <button
+              onClick={async () => {
+                if (!openPath) return;
+                await upsertNode({ path: openPath, content: draft, updatedAt: Date.now(), type: 'file' });
+                setDirty(false);
+                await onRefresh();
+              }}
+            >
+              Save
+            </button>
+            <button
+              onClick={async () => {
+                if (!openPath) return;
+                const next = prompt('Rename path', openPath)?.trim() ?? '';
+                if (!next) return;
+                await renameNode(openPath, next);
+                setOpenPath(next);
+                await onRefresh();
+              }}
+            >
+              Rename
+            </button>
+            <button
+              onClick={async () => {
+                if (!openPath || !confirm(`Delete ${openPath}?`)) return;
+                await deleteNode(openPath);
+                setOpenPath('');
+                setDraft('');
+                setDirty(false);
+                await onRefresh();
+              }}
+            >
+              Delete
+            </button>
+          </div>
+          <div className="statusbar">
+            {openPath || 'none'} · {dirty ? 'dirty' : 'saved'}
+          </div>
         </div>
-        <div className="statusbar">{openPath || 'none'} · {dirty ? 'dirty' : 'saved'}</div>
-      </div>
+      )}
     </section>
   );
 }

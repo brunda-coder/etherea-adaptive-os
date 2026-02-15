@@ -1,31 +1,62 @@
 {
   "intents": {
     "greeting": {
-      "patterns": ["^hi$", "hello", "hey"],
+      "patterns": ["^hi$", "^hello$", "^hey$", "good morning", "good evening"],
       "responses": [
-        "Welcome back. Ready to build in your workspace?",
-        "Hey there—systems are online locally and ready.",
-        "Good to see you. We can learn, build, or tune settings right now."
+        "Hey, welcome back. Want a quick EI demo before we build?",
+        "Hi. I can teach, edit files, or tune settings in one move.",
+        "Great to see you. Say \"teach regression\" and we can start right now."
       ],
       "emotion": { "mood": "care", "intensity": 0.58 }
     },
-    "offline": {
-      "patterns": ["offline", "internet", "network"],
+    "ei_intro": {
+      "patterns": ["emotional intelligence", "\\bei\\b", "ei intro"],
       "responses": [
-        "All good—offline mode is active and stable.",
-        "No connection needed for core flow. We can proceed locally.",
-        "We stay responsive offline. Your workspace remains available."
+        "EI is awareness plus action. Notice mood, choose better next steps, then reflect.",
+        "Etherea uses EI as a loop: signal, mood map, adaptive response, and gentle correction."
       ],
-      "emotion": { "mood": "calm", "intensity": 0.42 }
+      "emotion": { "mood": "focused", "intensity": 0.61 }
+    },
+    "teach_mode": {
+      "patterns": ["teach", "lesson", "explain"],
+      "responses": [
+        "I can run a compact lesson with examples and a tiny exercise.",
+        "Ready for teach mode. Pick a topic and I will scaffold it in short steps."
+      ],
+      "emotion": { "mood": "curious", "intensity": 0.66 }
+    },
+    "workspace": {
+      "patterns": ["create file", "edit file", "summarize file", "list files", "workspace root"],
+      "responses": [
+        "Workspace command understood. I will run it safely.",
+        "Got it. Routing that to workspace controls now."
+      ],
+      "emotion": { "mood": "focused", "intensity": 0.63 }
+    },
+    "settings": {
+      "patterns": ["theme", "accent", "voice output", "mic", "reduced motion"],
+      "responses": [
+        "Settings command ready. I can apply it instantly.",
+        "Perfect. I will tune that preference now."
+      ],
+      "emotion": { "mood": "calm", "intensity": 0.48 }
     },
     "default": {
       "patterns": [".*"],
       "responses": [
-        "I can help with files, lessons, and settings. Try: list files.",
-        "Tell me your goal and I will route the next action.",
-        "Want structured help? Ask me to teach a topic or run /help."
+        "Tell me your goal and I will handle the next step.",
+        "Want action or learning? I can do both from here.",
+        "Try: list files, teach regression, or set theme preset midnight."
       ],
-      "emotion": { "mood": "curious", "intensity": 0.5 }
+      "emotion": { "mood": "curious", "intensity": 0.52 }
     }
+  },
+  "microLines": {
+    "calm": ["Steady and clear.", "No rush, we can do this cleanly."],
+    "focused": ["Locked on.", "Precision mode is on."],
+    "curious": ["Nice thread to pull.", "Let’s explore that."],
+    "hype": ["This is fun.", "Momentum is building."],
+    "care": ["I am right here with you.", "You are doing well."],
+    "stressed": ["Let’s shrink the task and move step by step.", "Small steps, strong outcome."]
   }
 }

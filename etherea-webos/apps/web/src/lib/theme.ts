@@ -7,10 +7,13 @@ export type ThemeSettings = {
   rounded: number;
   reducedMotion: boolean;
   sensorsKillSwitch: boolean;
+  privacyKillSwitch: boolean;
+  voiceOutputEnabled: boolean;
+  micOptIn: boolean;
   mode: 'professional' | 'balanced' | 'playful';
 };
 
-const STORAGE_KEY = 'etherea.theme.v1';
+const STORAGE_KEY = 'etherea.theme.v2';
 
 export const PRESET_ACCENTS: Record<ThemePreset, string> = {
   nebula: '#7c3aed',
@@ -24,9 +27,12 @@ export const defaultTheme: ThemeSettings = {
   preset: 'nebula',
   accent: PRESET_ACCENTS.nebula,
   glow: 0.55,
-  rounded: 14,
+  rounded: 16,
   reducedMotion: false,
   sensorsKillSwitch: false,
+  privacyKillSwitch: false,
+  voiceOutputEnabled: false,
+  micOptIn: false,
   mode: 'professional',
 };
 
@@ -35,10 +41,12 @@ export function loadTheme(): ThemeSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultTheme;
     const parsed = JSON.parse(raw) as Partial<ThemeSettings>;
+    const preset = (parsed.preset as ThemePreset) ?? defaultTheme.preset;
     return {
       ...defaultTheme,
       ...parsed,
-      accent: parsed.accent ?? PRESET_ACCENTS[(parsed.preset as ThemePreset) ?? defaultTheme.preset],
+      preset,
+      accent: parsed.accent ?? PRESET_ACCENTS[preset],
     };
   } catch {
     return defaultTheme;

@@ -1,4 +1,4 @@
-import { deleteNode, listWorkspace, upsertNode, type WorkspaceFile } from './workspaceStore';
+import { listWorkspace, upsertNode, type WorkspaceFile } from './workspaceStore';
 import { PRESET_ACCENTS, type ThemePreset, type ThemeSettings } from './theme';
 
 export type CommandName =
@@ -9,6 +9,9 @@ export type CommandName =
   | 'open_file'
   | 'set_theme'
   | 'set_mode'
+  | 'set_voice_output'
+  | 'set_mic_opt_in'
+  | 'allow_workspace_root'
   | 'help';
 
 export type BrainCommand = {
@@ -28,6 +31,7 @@ export async function executeCommand(
     await upsertNode({ path, content, updatedAt: Date.now(), type: 'file' });
     return `${command.name === 'create_file' ? 'Created' : 'Updated'} ${path}`;
   }
+
   if (command.name === 'summarize_file') {
     const path = String(command.args.path ?? '');
     const row = (await listWorkspace()).find((item) => item.path === path && item.type === 'file');
@@ -35,6 +39,7 @@ export async function executeCommand(
     const lines = row.content.split('\n').filter(Boolean);
     return `${path}: ${lines.length} lines, ${row.content.length} chars. Preview: ${row.content.slice(0, 120)}`;
   }
+
   if (command.name === 'list_files') {
     const depth = Number(command.args.depth ?? 3);
     const rows = (await listWorkspace())
@@ -42,11 +47,13 @@ export async function executeCommand(
       .sort((a, b) => a.path.localeCompare(b.path));
     return rows.length ? rows.map((r) => `${r.type === 'folder' ? '📁' : '📄'} ${r.path}`).join('\n') : 'Workspace is empty.';
   }
+
   if (command.name === 'open_file') {
     return `Opening ${String(command.args.path ?? '')}`;
   }
+
   if (command.name === 'set_theme') {
-    const preset = String(command.args.preset ?? 'nebula') as ThemePreset;
+    const preset = String(command.args.preset ?? activeTheme.preset) as ThemePreset;
     const next = {
       ...activeTheme,
       preset,
@@ -56,17 +63,32 @@ export async function executeCommand(
       reducedMotion: Boolean(command.args.reducedMotion ?? activeTheme.reducedMotion),
     };
     setTheme(next);
-    return `Theme set to ${preset}`;
+    return `Theme updated (${next.preset})`;
   }
+
+  if (command.name === 'set_voice_output') {
+    const enabled = Boolean(command.args.enabled);
+    setTheme({ ...activeTheme, voiceOutputEnabled: enabled });
+    return `Voice output ${enabled ? 'enabled' : 'disabled'}.`;
+  }
+
+  if (command.name === 'set_mic_opt_in') {
+    const enabled = Boolean(command.args.enabled);
+    setTheme({ ...activeTheme, micOptIn: enabled, privacyKillSwitch: !enabled ? activeTheme.privacyKillSwitch : false });
+    return `Mic opt-in ${enabled ? 'enabled' : 'disabled'}.`;
+  }
+
+  if (command.name === 'allow_workspace_root') {
+    return 'Workspace root access allowed for this local session.';
+  }
+
   if (command.name === 'set_mode') {
     const mode = String(command.args.mode ?? 'professional') as ThemeSettings['mode'];
     setTheme({ ...activeTheme, mode });
     return `Mode switched to ${mode}`;
   }
-  if (command.name === 'help') {
-    return 'Commands: create_file, edit_file, summarize_file, list_files, open_file, set_theme, set_mode, help';
-  }
-  return 'No action executed.';
+
+  return 'Commands: create/edit/summarize/list files, set theme preset, set accent, voice output on/off, mic opt-in on/off.';
 }
 
 export function allowedFile(path: string) {
