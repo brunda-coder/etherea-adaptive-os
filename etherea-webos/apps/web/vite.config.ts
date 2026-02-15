@@ -13,7 +13,7 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
-        globIgnores: ['**/*.map', '**/assets/*.map'],
+        globIgnores: ['**/*.map', '**/assets/*.map', '**/assets/vendor_monaco-*.js'],
       },
       manifest: {
         name: 'Etherea Adaptive OS',
@@ -37,6 +37,7 @@ export default defineConfig({
       : []),
   ],
   build: {
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         manualChunks(id) {
