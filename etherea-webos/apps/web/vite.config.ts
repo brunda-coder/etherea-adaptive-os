@@ -13,7 +13,7 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
-        globIgnores: ['**/*.map', '**/assets/*.map', '**/assets/vendor_monaco-*.js'],
+        globIgnores: ['**/*.map', '**/assets/*.map', '**/assets/vendor_monaco-*.js', '**/assets/vendor_three-*.js'],
       },
       manifest: {
         name: 'Etherea Adaptive OS',
@@ -41,12 +41,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          if (id.includes('monaco-editor')) return 'vendor_monaco';
-          if (id.includes('pdfjs-dist')) return 'vendor_pdfjs';
-          if (id.includes('three')) return 'vendor_three';
-          if (id.includes('react')) return 'vendor_react';
-          return 'vendor';
+          if (id.includes('node_modules/react')) return 'vendor_react';
+          if (id.includes('node_modules')) return 'vendor';
+          return 'app';
         },
       },
     },
