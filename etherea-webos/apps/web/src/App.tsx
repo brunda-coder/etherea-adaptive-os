@@ -1,16 +1,28 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { Component, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { runAgentAction, storage, stressFocus, type AgentAction } from '@etherea/core';
 import { AuroraRing } from '@etherea/ui';
 import * as pdfjsLib from 'pdfjs-dist';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import * as monaco from 'monaco-editor';
 import * as THREE from 'three';
+import offlineBrain from './brain.json';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 type Mode = 'drawing' | 'pdf' | 'coding';
 type MicState = 'idle' | 'requesting' | 'listening' | 'blocked';
+type ToastTone = 'success' | 'error';
+
+type OfflineBrainContract = {
+  response: string;
+  command: string;
+  save_memory: boolean;
+  emotion_update: string;
+};
+
 const themes = Array.from({ length: 50 }, (_, i) => `Preset ${i + 1}`);
+const tutorialSteps = ['Welcome to Etherea', 'Try workspaces', 'Review settings'];
+const defaultOfflineBrain = offlineBrain as OfflineBrainContract;
 
 function supportsSpeechRecognition(): boolean {
   return typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
@@ -45,7 +57,7 @@ async function idbGet(store: string, key: string): Promise<string | null> {
   });
 }
 
-function Avatar3D({ mouthOpen, isTyping, isSpeaking }: { mouthOpen: number; isTyping: boolean; isSpeaking: boolean }) {
+function Avatar3D({ mouthOpen, isTyping, isSpeaking, reducedMotion }: { mouthOpen: number; isTyping: boolean; isSpeaking: boolean; reducedMotion: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const mouthOpenRef = useRef(mouthOpen);
   const [status, setStatus] = useState<'loading avatar' | 'avatar loaded' | 'avatar unavailable (webgl blocked)'>('loading avatar');
@@ -103,8 +115,8 @@ function Avatar3D({ mouthOpen, isTyping, isSpeaking }: { mouthOpen: number; isTy
       const blinkDuration = 6;
       const animate = () => {
         frame += 1;
-        const breathe = 1 + Math.sin(frame / 30) * 0.015;
-        const hover = Math.sin(frame / 65) * 0.02;
+        const breathe = reducedMotion ? 1 : 1 + Math.sin(frame / 30) * 0.015;
+        const hover = reducedMotion ? 0 : Math.sin(frame / 65) * 0.02;
         head.scale.setScalar(breathe);
         head.position.y = hover;
         head.rotation.z = isTyping ? -0.06 : 0;
@@ -119,7 +131,7 @@ function Avatar3D({ mouthOpen, isTyping, isSpeaking }: { mouthOpen: number; isTy
         blinkR.scale.y = blinkY;
 
         const speakingPulse = isSpeaking ? 1 + Math.sin(frame / 6) * 0.035 : 1 + Math.sin(frame / 50) * 0.01;
-        aura.scale.setScalar(speakingPulse);
+        aura.scale.setScalar(reducedMotion ? 1 : speakingPulse);
         (aura.material as THREE.MeshBasicMaterial).opacity = isSpeaking ? 0.23 : 0.12;
         mouth.scale.y = 0.6 + Math.max(0.1, Math.min(10, mouthOpenRef.current)) / 10;
         head.material.opacity = 0.96 + Math.sin(frame / 90) * 0.03;
@@ -137,27 +149,34 @@ function Avatar3D({ mouthOpen, isTyping, isSpeaking }: { mouthOpen: number; isTy
       if (frameId) cancelAnimationFrame(frameId);
       renderer?.dispose();
     };
-  }, []);
+  }, [isTyping, isSpeaking, reducedMotion]);
 
-  return <div><div ref={mountRef} /><div className="indicator">{status}</div></div>;
+  return (
+    <div>
+      <div ref={mountRef} className="avatar-mount" />
+      <p className="indicator">{status}</p>
+    </div>
+  );
 }
 
-export function App() {
+function AppShell() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const [tutorialVisible, setTutorialVisible] = useState(!storage.load<boolean>('tutorial.skip'));
   const [stress, setStress] = useState(20);
   const [focus, setFocus] = useState(70);
   const [mode, setMode] = useState<Mode>('drawing');
   const [mouthOpen, setMouthOpen] = useState(1);
-  const [bubble, setBubble] = useState('Avatar ready for guidance.');
-  const [voiceOn, setVoiceOn] = useState(true);
+  const [emotion, setEmotion] = useState(defaultOfflineBrain.emotion_update);
+  const [bubble, setBubble] = useState(defaultOfflineBrain.response);
+  const [voiceOn, setVoiceOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
   const [typingActive, setTypingActive] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [micState, setMicState] = useState<MicState>('idle');
   const [micLevel, setMicLevel] = useState(0);
-  const [privacy, setPrivacy] = useState(false);
-  const [theme, setTheme] = useState(themes[0]);
+  const [privacy, setPrivacy] = useState(true);
+  const [theme, setTheme] = useState(storage.load<string>('theme.preset') ?? themes[0]);
+  const [reducedMotion, setReducedMotion] = useState(storage.load<boolean>('ui.reduced_motion') ?? false);
   const [agentTask, setAgentTask] = useState<AgentAction>('create_ppt');
   const [agentState, setAgentState] = useState<'idle' | 'running' | 'paused' | 'cancelled'>('idle');
   const [agentOutput, setAgentOutput] = useState('');
@@ -167,6 +186,8 @@ export function App() {
   const [annotation, setAnnotation] = useState('');
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [selfcheck, setSelfcheck] = useState<string[]>([]);
+  const [selfcheckVisible, setSelfcheckVisible] = useState(false);
+  const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null);
 
   const drawRef = useRef<HTMLCanvasElement>(null);
   const pdfRef = useRef<HTMLCanvasElement>(null);
@@ -174,6 +195,19 @@ export function App() {
   const textEditorRef = useRef<HTMLTextAreaElement>(null);
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    document.body.dataset.reduceMotion = reducedMotion ? 'on' : 'off';
+    storage.save('ui.reduced_motion', reducedMotion);
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    storage.save('theme.preset', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (privacy && micOn) setMicOn(false);
+  }, [privacy, micOn]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -229,35 +263,38 @@ export function App() {
     let ctx: AudioContext | null = null;
 
     setMicState('requesting');
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((activeStream) => {
-      stream = activeStream;
-      setMicState('listening');
-      try {
-        ctx = new AudioContext();
-      } catch {
-        setMicState('blocked');
-        setBubble('Microphone captured, but audio context is blocked.');
-        return;
-      }
-      const analyser = ctx.createAnalyser();
-      const source = ctx.createMediaStreamSource(activeStream);
-      source.connect(analyser);
-      analyser.fftSize = 64;
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
-        analyser.getByteFrequencyData(data);
-        const avg = data.length ? data.reduce((a, b) => a + b, 0) / data.length : 0;
-        if (mounted) {
-          setMicLevel(Math.round(avg));
-          setMouthOpen(Math.max(1, avg / 20));
-          frameId = requestAnimationFrame(tick);
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((activeStream) => {
+        stream = activeStream;
+        setMicState('listening');
+        try {
+          ctx = new AudioContext();
+        } catch {
+          setMicState('blocked');
+          setBubble('Microphone captured, but audio context is blocked.');
+          return;
         }
-      };
-      tick();
-    }).catch(() => {
-      setMicState('blocked');
-      setBubble('Mic permission path available, awaiting approval.');
-    });
+        const analyser = ctx.createAnalyser();
+        const source = ctx.createMediaStreamSource(activeStream);
+        source.connect(analyser);
+        analyser.fftSize = 64;
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const tick = () => {
+          analyser.getByteFrequencyData(data);
+          const avg = data.length ? data.reduce((a, b) => a + b, 0) / data.length : 0;
+          if (mounted) {
+            setMicLevel(Math.round(avg));
+            setMouthOpen(Math.max(1, avg / 20));
+            frameId = requestAnimationFrame(tick);
+          }
+        };
+        tick();
+      })
+      .catch(() => {
+        setMicState('blocked');
+        setBubble('Mic permission path available, awaiting approval.');
+      });
 
     return () => {
       mounted = false;
@@ -276,13 +313,21 @@ export function App() {
     return 'blocked';
   }, [micOn, micState]);
 
+  const showToast = (text: string, tone: ToastTone = 'success') => {
+    setToast({ text, tone });
+    window.setTimeout(() => setToast(null), 2300);
+  };
+
   const speakDemo = () => {
-    const text = 'Emotional intelligence is reading signals with care, then responding in a grounded way. Etherea does this offline using safe signals like typing rhythm, focus shifts, and optional local mic cues you control. Want me to show you? I’ll adapt theme + pace.';
-    setBubble(text);
+    const offlineReply =
+      'Emotional intelligence means reading patterns with care and responding with calm timing. I adapt offline from local signals like pace, focus, and optional mic cues. I keep your sensors off until you explicitly opt in.';
+    setBubble(offlineReply);
+    setEmotion('encouraging');
     setSpeaking(true);
     window.setTimeout(() => setSpeaking(false), 4200);
+    showToast('Offline demo reply ready.');
     if (voiceOn && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(offlineReply);
       utterance.onend = () => setSpeaking(false);
       speechSynthesis.speak(utterance);
     }
@@ -303,23 +348,29 @@ export function App() {
     if (!drawRef.current) return;
     await idbSet('drawings', 'latest', drawRef.current.toDataURL('image/png'));
     setBubble('Drawing saved to IndexedDB.');
+    showToast('Drawing saved.');
   };
+
   const loadDrawing = async () => {
     const encoded = await idbGet('drawings', 'latest');
     if (!encoded || !drawRef.current) {
       setBubble('No saved drawing yet.');
+      showToast('No saved drawing found.', 'error');
       return;
     }
     const img = new Image();
     img.onload = () => drawRef.current?.getContext('2d')?.drawImage(img, 0, 0);
     img.src = encoded;
+    showToast('Drawing loaded.');
   };
+
   const exportDrawing = () => {
     if (!drawRef.current) return;
     const a = document.createElement('a');
     a.href = drawRef.current.toDataURL('image/png');
     a.download = 'etherea-drawing.png';
     a.click();
+    showToast('Drawing export started.');
   };
 
   const loadPdf = async (file: File) => {
@@ -340,9 +391,11 @@ export function App() {
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
       setPdfLoaded(true);
       setBubble('PDF page rendered.');
+      showToast('PDF loaded.');
     } catch {
       setPdfLoaded(false);
       setBubble('Unable to render this PDF in sandbox mode.');
+      showToast('PDF render failed in this environment.', 'error');
     }
   };
 
@@ -355,18 +408,22 @@ export function App() {
       setAgentOutput(JSON.stringify(runAgentAction('generate_notes'), null, 2));
     }
     setAgentState('idle');
+    showToast('Agent job completed.');
   };
 
   const saveCode = async () => {
     const content = monacoRef.current?.getValue() ?? textEditorRef.current?.value ?? '';
     await idbSet('files', 'main.ts', content);
     setBubble('Code saved.');
+    showToast('Code saved.');
   };
+
   const openCode = async () => {
     const v = await idbGet('files', 'main.ts');
     if (monacoRef.current) monacoRef.current.setValue(v ?? '// empty');
     if (textEditorRef.current) textEditorRef.current.value = v ?? '// empty';
     if (!v) setBubble('First-use coding workspace: start writing in main.ts');
+    showToast('Code opened.');
   };
 
   const runSelfcheck = async () => {
@@ -380,39 +437,222 @@ export function App() {
     logs.push(runAgentAction('generate_notes').output ? 'PASS: Agent deterministic output is available.' : 'FAIL: Agent output missing.');
     logs.push(micState === 'blocked' ? 'FAIL: Mic permission is blocked/unavailable.' : 'PASS: Mic permission pathway is present.');
     logs.push(document.body.innerText.includes('avatar loaded') ? 'PASS: Avatar loaded indicator visible.' : 'FAIL: Avatar did not report loaded state.');
+    logs.push(defaultOfflineBrain.command ? 'PASS: Offline brain contract is loaded.' : 'FAIL: Offline brain contract missing.');
     setSelfcheck(logs);
+    setSelfcheckVisible(true);
+    showToast('SelfCheck complete.');
   };
 
   return (
     <div className="app" data-theme={theme}>
-      <header><h1>Etherea WebOS</h1><input className="command" placeholder="Command bar always visible" /></header>
-      {tutorialVisible && <section className="tutorial"><b>Coach Overlay</b><p>{['Welcome', 'Try workspaces', 'Review settings'][tutorialStep]}</p><button onClick={() => setTutorialStep((s: number) => Math.max(0, s - 1))}>Back</button><button onClick={() => setTutorialStep((s: number) => Math.min(2, s + 1))}>Next</button><button onClick={() => { storage.save('tutorial.skip', true); setTutorialVisible(false); }}>Skip</button><button onClick={() => setTutorialVisible(false)}>Close</button></section>}
-      <section className="top">
-        <AuroraRing stress={stress} />
-        <div>
-          <Avatar3D mouthOpen={mouthOpen} isTyping={typingActive} isSpeaking={speaking || micState === 'listening'} />
+      <header className="app-header card">
+        <h1>Etherea WebOS</h1>
+        <input className="command" placeholder="Type a command or intent..." aria-label="Command bar" />
+      </header>
+
+      {tutorialVisible && (
+        <section className="tutorial card">
+          <b>Coach Overlay</b>
+          <p>{tutorialSteps[tutorialStep]}</p>
+          <div>
+            <button onClick={() => setTutorialStep((s: number) => Math.max(0, s - 1))}>Back</button>
+            <button onClick={() => setTutorialStep((s: number) => Math.min(2, s + 1))}>Next</button>
+            <button
+              onClick={() => {
+                storage.save('tutorial.skip', true);
+                setTutorialVisible(false);
+              }}
+            >
+              Skip
+            </button>
+            <button onClick={() => setTutorialVisible(false)}>Close</button>
+          </div>
+        </section>
+      )}
+
+      <section className="hero-grid">
+        <div className="card stage">
+          <div className="aurora-wrap">
+            <AuroraRing stress={stress} />
+          </div>
+          <Avatar3D mouthOpen={mouthOpen} isTyping={typingActive} isSpeaking={speaking || micState === 'listening'} reducedMotion={reducedMotion} />
+          <p className="bubble">{bubble}</p>
+          <div className="row">
+            <button className="primary" onClick={speakDemo}>
+              Speak Demo
+            </button>
+            <button onClick={runSelfcheck}>Run SelfCheck</button>
+          </div>
+          <p className="meta">
+            Stress {stress} · Focus {focus} · Expression {expression} · Emotion {emotion}
+          </p>
+        </div>
+
+        <div className="card reply-panel">
+          <h2>Etherea replies</h2>
           <p>{bubble}</p>
-          <button onClick={speakDemo}>Speak Demo</button>
-          <div className="debug">Stress {stress} Focus {focus} Expression {expression}</div>
-          <div>Mic ({micStatusText}): <progress max={120} value={micLevel} /> {micLevel} {supportsSpeechRecognition() ? 'speech recognition available' : 'listening stub active'}</div>
+          <ul>
+            <li>Mic status: {micStatusText}</li>
+            <li>Mic level: {micLevel}</li>
+            <li>{supportsSpeechRecognition() ? 'Speech recognition APIs available.' : 'Listening stub active in this runtime.'}</li>
+            <li>Brain command: {defaultOfflineBrain.command}</li>
+          </ul>
         </div>
       </section>
 
-      <nav>
-        <button onClick={() => setMode('drawing')}>Drawing</button>
-        <button onClick={() => setMode('pdf')}>PDF</button>
-        <button onClick={() => setMode('coding')}>Coding</button>
-        <button onClick={runSelfcheck}>SelfCheck</button>
+      <nav className="nav-tabs">
+        <button className={mode === 'drawing' ? 'active' : ''} onClick={() => setMode('drawing')}>
+          Canvas
+        </button>
+        <button className={mode === 'pdf' ? 'active' : ''} onClick={() => setMode('pdf')}>
+          PDF
+        </button>
+        <button className={mode === 'coding' ? 'active' : ''} onClick={() => setMode('coding')}>
+          Coding
+        </button>
       </nav>
 
-      {mode === 'drawing' && <section><canvas ref={drawRef} width={600} height={260} onMouseMove={draw} /><div><button onClick={() => setDrawTool('pen')}>Pen</button><button onClick={() => setDrawTool('eraser')}>Eraser</button><input type="color" value={drawColor} onChange={(e: any) => setDrawColor(e.target.value)} /><input type="range" min={1} max={20} value={drawSize} onChange={(e: any) => setDrawSize(Number(e.target.value))} /><button onClick={saveDrawing}>Save IndexedDB</button><button onClick={loadDrawing}>Load IndexedDB</button><button onClick={exportDrawing}>Export PNG</button></div><div>Tip: hold left mouse button and drag to draw.</div></section>}
-      {mode === 'pdf' && <section><input type="file" accept="application/pdf" onChange={(e: any) => e.target.files?.[0] && loadPdf(e.target.files[0])} /><canvas ref={pdfRef} /><textarea value={annotation} onChange={(e: any) => setAnnotation(e.target.value)} placeholder="Annotation notes" /><button onClick={() => setBubble(JSON.stringify(runAgentAction('summarize_pdf').output))}>Summarize</button><div>{pdfLoaded ? 'PDF workspace ready.' : 'First-use: upload a PDF to render page 1.'}</div></section>}
-      {mode === 'coding' && <section><div className="files">main.ts</div><div ref={editorRef} className="editor" />{!monacoRef.current && <textarea ref={textEditorRef} className="editor" defaultValue="// fallback editor" />}<button onClick={saveCode}>Save</button><button onClick={openCode}>Open</button><div>First-use: open to load saved code or start from // empty.</div></section>}
+      {mode === 'drawing' && (
+        <section className="card">
+          <h3>Canvas</h3>
+          <canvas ref={drawRef} width={600} height={260} onMouseMove={draw} />
+          <div>
+            <button onClick={() => setDrawTool('pen')}>Pen</button>
+            <button onClick={() => setDrawTool('eraser')}>Eraser</button>
+            <input type="color" value={drawColor} onChange={(e) => setDrawColor(e.target.value)} />
+            <input type="range" min={1} max={20} value={drawSize} onChange={(e) => setDrawSize(Number(e.target.value))} />
+            <button onClick={saveDrawing}>Save IndexedDB</button>
+            <button onClick={loadDrawing}>Load IndexedDB</button>
+            <button onClick={exportDrawing}>Export PNG</button>
+          </div>
+          <p>Tip: hold left mouse button and drag to draw.</p>
+        </section>
+      )}
 
-      <section className="agent"><h3>Agent Works</h3><select value={agentTask} onChange={(e: any) => setAgentTask(e.target.value as AgentAction)}><option value="create_ppt">create_ppt</option><option value="summarize_pdf">summarize_pdf</option><option value="generate_notes">generate_notes</option></select><button onClick={runAgent}>Run</button><button onClick={() => setAgentState('paused')}>Pause</button><button onClick={() => setAgentState('cancelled')}>Cancel</button><div>Status: {agentState}</div><pre>{agentOutput}</pre></section>
+      {mode === 'pdf' && (
+        <section className="card">
+          <h3>PDF</h3>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void loadPdf(file);
+            }}
+          />
+          <canvas ref={pdfRef} />
+          <textarea value={annotation} onChange={(e) => setAnnotation(e.target.value)} placeholder="Annotation notes" />
+          <button onClick={() => setBubble(JSON.stringify(runAgentAction('summarize_pdf').output))}>Summarize</button>
+          <p>{pdfLoaded ? 'PDF workspace ready.' : 'First-use: upload a PDF to render page 1.'}</p>
+        </section>
+      )}
 
-      <section className="settings"><h3>Settings</h3><label><input type="checkbox" checked={voiceOn} onChange={(e: any) => setVoiceOn(e.target.checked)} />voice</label><label><input type="checkbox" checked={micOn} onChange={(e: any) => setMicOn(e.target.checked)} />mic</label><label><input type="checkbox" checked={privacy} onChange={(e: any) => setPrivacy(e.target.checked)} />privacy</label><label>sensitivity<input type="range" min={1} max={100} defaultValue={40} /></label><label>memory retention<input type="range" /></label><button onClick={() => storage.clear()}>clear memory</button><select value={theme} onChange={(e: any) => setTheme(e.target.value)}>{themes.map((t) => <option key={t}>{t}</option>)}</select><input placeholder="Gradient creator: #111,#333,#999" /><div>Connectors: Drive, GitHub, Calendar, Spotify (not yet connected)</div><div>Background notifications wired in web sandbox as in-app notices only.</div><div>Mic and sensors stay off by default until you opt in.</div></section>
-      <section>{selfcheck.map((line: string) => <div key={line}>{line}</div>)}</section>
+      {mode === 'coding' && (
+        <section className="card">
+          <h3>Coding</h3>
+          <div className="files">main.ts</div>
+          <div ref={editorRef} className="editor" />
+          {!monacoRef.current && <textarea ref={textEditorRef} className="editor" defaultValue="// fallback editor" />}
+          <button onClick={saveCode}>Save</button>
+          <button onClick={openCode}>Open</button>
+          <p>First-use: open to load saved code or start from // empty.</p>
+        </section>
+      )}
+
+      <section className="card agent">
+        <h3>Agent Works</h3>
+        <select value={agentTask} onChange={(e) => setAgentTask(e.target.value as AgentAction)}>
+          <option value="create_ppt">create_ppt</option>
+          <option value="summarize_pdf">summarize_pdf</option>
+          <option value="generate_notes">generate_notes</option>
+        </select>
+        <button onClick={runAgent}>Run</button>
+        <button onClick={() => setAgentState('paused')}>Pause</button>
+        <button onClick={() => setAgentState('cancelled')}>Cancel</button>
+        <p>Status: {agentState}</p>
+        <pre>{agentOutput}</pre>
+      </section>
+
+      <section className="card settings">
+        <h3>Settings</h3>
+        <label>
+          <input type="checkbox" checked={voiceOn} onChange={(e) => setVoiceOn(e.target.checked)} />
+          Voice output
+        </label>
+        <label>
+          <input type="checkbox" checked={micOn} disabled={privacy} onChange={(e) => setMicOn(e.target.checked)} />
+          Microphone (opt-in){privacy ? " - disabled by kill-switch" : ""}
+        </label>
+        <label>
+          <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
+          Privacy kill-switch (ON = sensors off)
+        </label>
+        <label>
+          <input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} />
+          Reduced motion
+        </label>
+        <label>
+          Theme preset
+          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+            {themes.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          onClick={() => {
+            storage.clear();
+            showToast('Memory cleared.');
+          }}
+        >
+          Clear memory
+        </button>
+        <p>Connectors: Drive, GitHub, Calendar, Spotify (not yet connected).</p>
+        <p>Mic/camera/sensors are off by default and remain off until you opt in.</p>
+      </section>
+
+      <details className="card" open={selfcheckVisible}>
+        <summary>SelfCheck</summary>
+        <ul>
+          {selfcheck.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
+
+      {toast && <div className={`toast ${toast.tone}`}>{toast.text}</div>}
     </div>
+  );
+}
+
+type BoundaryState = { hasError: boolean };
+
+class FriendlyErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
+  override state: BoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): BoundaryState {
+    return { hasError: true };
+  }
+
+  override render() {
+    if (this.state.hasError) {
+      return (
+        <div className="app">
+          <section className="card error-card">
+            <h2>We hit a temporary issue.</h2>
+            <p>Please refresh the page. If this repeats, open Settings and run SelfCheck first.</p>
+          </section>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function App() {
+  return (
+    <FriendlyErrorBoundary>
+      <AppShell />
+    </FriendlyErrorBoundary>
   );
 }

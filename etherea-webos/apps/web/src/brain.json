@@ -1,0 +1,6 @@
+{
+  "response": "Want a quick demo? I can explain Emotional Intelligence and how I use it to adapt.",
+  "command": "speak_demo",
+  "save_memory": true,
+  "emotion_update": "curious"
+}

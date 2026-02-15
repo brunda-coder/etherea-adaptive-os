@@ -7,6 +7,7 @@ const repoRoot = path.resolve(scriptDir, '..');
 
 const distIndex = path.join(repoRoot, 'apps/web/dist/index.html');
 const viteConfig = path.join(repoRoot, 'apps/web/vite.config.ts');
+const brainPath = path.join(repoRoot, 'apps/web/src/brain.json');
 
 function fail(message) {
   console.error(`SELF-CHECK FAIL: ${message}`);
@@ -18,12 +19,7 @@ if (!fs.existsSync(distIndex)) {
 }
 
 const viteText = fs.readFileSync(viteConfig, 'utf8');
-const requiredSnippets = [
-  'maximumFileSizeToCacheInBytes',
-  '8 * 1024 * 1024',
-  'manualChunks',
-  'globIgnores',
-];
+const requiredSnippets = ['maximumFileSizeToCacheInBytes', '8 * 1024 * 1024', 'manualChunks', 'globIgnores'];
 
 for (const snippet of requiredSnippets) {
   if (!viteText.includes(snippet)) {
@@ -31,4 +27,20 @@ for (const snippet of requiredSnippets) {
   }
 }
 
-console.log('SELF-CHECK PASS: web dist output + workbox/rollup precache safety checks');
+if (!fs.existsSync(brainPath)) {
+  fail('missing apps/web/src/brain.json offline brain contract');
+}
+
+const brain = JSON.parse(fs.readFileSync(brainPath, 'utf8'));
+for (const key of ['response', 'command', 'save_memory', 'emotion_update']) {
+  if (!(key in brain)) {
+    fail(`brain.json missing required field: ${key}`);
+  }
+}
+
+const webSrc = fs.readFileSync(path.join(repoRoot, 'apps/web/src/App.tsx'), 'utf8');
+if (/gemini|googlegenerativeai/i.test(webSrc)) {
+  fail('runtime Gemini reference detected in apps/web/src/App.tsx');
+}
+
+console.log('SELF-CHECK PASS: web dist output + workbox/rollup safety + offline brain contract');

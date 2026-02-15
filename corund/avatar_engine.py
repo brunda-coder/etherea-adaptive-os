@@ -124,7 +124,7 @@ class AvatarEngine:
             return m.group(1).strip()
         return "this concept"
 
-    def _gemini_generate(self, prompt: str) -> str:
+    def _provider_stub_generate(self, prompt: str) -> str:
         """Compatibility shim for optional cloud provider wiring.
 
         Etherea stays offline-first by default and never requires network access.
