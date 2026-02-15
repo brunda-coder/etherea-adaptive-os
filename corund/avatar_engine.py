@@ -124,6 +124,18 @@ class AvatarEngine:
             return m.group(1).strip()
         return "this concept"
 
+    def _gemini_generate(self, prompt: str) -> str:
+        """Compatibility shim for optional cloud provider wiring.
+
+        Etherea stays offline-first by default and never requires network access.
+        This method intentionally returns a deterministic local fallback response so
+        provider connector checks can verify the extension point safely.
+        """
+        cleaned = (prompt or "").strip()
+        if not cleaned:
+            return "Local provider stub ready. Share a prompt to continue."
+        return f"Local provider stub: {cleaned[:160]}"
+
     def speak(self, user_text: str, emotion_tag: Optional[str] = None, **_kwargs) -> str:
         text = (user_text or "").strip()
         low = text.lower()
