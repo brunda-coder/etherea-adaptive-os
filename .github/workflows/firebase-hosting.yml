@@ -48,11 +48,10 @@ jobs:
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
-          else
-            npm install --no-audit --no-fund
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --no-audit --no-fund
           fi
+          npm ci --no-audit --no-fund
 
       - name: Build core/ui/web
         run: |

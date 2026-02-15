@@ -21,3 +21,5 @@ coverage/
 apps/android-capacitor/android/
 apps/android-capacitor/.gradle/
 apps/desktop-tauri/src-tauri/target/
+
+apps/desktop-tauri/src-tauri/icons/

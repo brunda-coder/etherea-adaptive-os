@@ -19,7 +19,7 @@ if (!fs.existsSync(distIndex)) {
 }
 
 const viteText = fs.readFileSync(viteConfig, 'utf8');
-const requiredSnippets = ['maximumFileSizeToCacheInBytes', '8 * 1024 * 1024', 'manualChunks', 'globIgnores'];
+const requiredSnippets = ['maximumFileSizeToCacheInBytes', '8 * 1024 * 1024', 'manualChunks', 'globIgnores', 'runtimeCaching'];
 
 for (const snippet of requiredSnippets) {
   if (!viteText.includes(snippet)) {
@@ -32,9 +32,15 @@ if (!fs.existsSync(brainPath)) {
 }
 
 const brain = JSON.parse(fs.readFileSync(brainPath, 'utf8'));
-for (const key of ['response', 'command', 'save_memory', 'emotion_update']) {
+for (const key of ['variants', 'teach_regression', 'ei_intro', 'fallback']) {
   if (!(key in brain)) {
     fail(`brain.json missing required field: ${key}`);
+  }
+}
+
+for (const key of ['response', 'command', 'save_memory', 'emotion_update']) {
+  if (!(key in brain.fallback)) {
+    fail(`brain.json fallback missing required field: ${key}`);
   }
 }
 

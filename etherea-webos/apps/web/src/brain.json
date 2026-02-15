@@ -1,6 +1,44 @@
 {
-  "response": "Want a quick demo? I can explain Emotional Intelligence and how I use it to adapt.",
-  "command": "speak_demo",
-  "save_memory": true,
-  "emotion_update": "curious"
+  "variants": {
+    "default": [
+      "I am online in local mode and ready to help with your next move.",
+      "Let’s keep momentum: I can guide focus, plan steps, or teach quickly.",
+      "Signal received. I’ll run this session fully offline and stay responsive."
+    ],
+    "speak_demo": [
+      "Etherea voice demo: calm timing, caring feedback, and adaptive expression from your local signals.",
+      "Demo pulse active: I can reflect your pace, focus, and intent without shipping your data away.",
+      "Voice check complete. I stay privacy-safe, local-first, and emotionally tuned to your workflow."
+    ]
+  },
+  "teach_regression": {
+    "lesson": [
+      "Regression estimates a numeric value from input features.",
+      "Pick clear features, then split train and validation data.",
+      "Fit a model that minimizes error on training examples.",
+      "Use MAE or RMSE to judge prediction quality.",
+      "Check residuals so patterns are not left unexplained.",
+      "Tune feature scale and complexity to avoid overfitting."
+    ],
+    "example": "If study_hours rises from 2 to 5 and score rises from 62 to 79, linear regression learns that positive slope.",
+    "quick_questions": [
+      "Why is RMSE more sensitive to large errors than MAE?",
+      "What does a curved residual pattern suggest about your model form?"
+    ],
+    "exercise": "Given small housing data with size and age, train a regression model and report MAE on a held-out split."
+  },
+  "ei_intro": "Emotional intelligence is the skill of noticing signals, understanding context, and choosing a constructive response. In Etherea, EI runs offline from signals you control: typing rhythm, optional mic energy, and your explicit commands.",
+  "low_internet_style": "No network required—I’ll keep moving with local tools and clear steps.",
+  "banned_phrases": [
+    "as an ai",
+    "language model",
+    "i'm an ai model",
+    "i can.t because i.m ai"
+  ],
+  "fallback": {
+    "response": "Welcome back. Your local brain is ready for calm, private assistance.",
+    "command": "idle",
+    "save_memory": true,
+    "emotion_update": "calm"
+  }
 }
