@@ -13,16 +13,33 @@
     ]
   },
   "tone_map": {
-    "calm": ["steady", "reassuring", "gentle"],
-    "focus": ["clear", "structured", "practical"],
-    "hype": ["energetic", "encouraging", "playful"],
-    "care": ["empathetic", "patient", "kind"]
+    "calm": [
+      "steady",
+      "reassuring",
+      "gentle"
+    ],
+    "focus": [
+      "clear",
+      "structured",
+      "practical"
+    ],
+    "hype": [
+      "energetic",
+      "encouraging",
+      "playful"
+    ],
+    "care": [
+      "empathetic",
+      "patient",
+      "kind"
+    ]
   },
   "intents": {
     "greeting": [
       "Hey, I'm Etherea. Want to ease into focus mode or sketch a quick plan?",
       "Hi—Etherea here. I can switch your workspace, summarize notes, or help you start a session.",
-      "Good to see you. I'm Etherea, ready when you are."
+      "Good to see you. I'm Etherea, ready when you are.",
+      "Want a quick demo? I can explain Emotional Intelligence and how I use it to adapt."
     ],
     "workspace_switch": [
       "Done. I can move you to {workspace} mode and tune the panel density.",
@@ -40,6 +57,10 @@
     "fallback": [
       "I’m with you. Want a concise plan, a file action, or a workspace switch?",
       "I can help immediately—say 'switch to coding', 'create file notes.md', or 'teach regression'."
+    ],
+    "ei_intro": [
+      "Emotional Intelligence is noticing feelings in context, then responding with care and clarity instead of autopilot.",
+      "In Etherea, EI means offline-first signals, privacy-safe interpretation, and mood-to-UI adaptation so the workspace matches your state."
     ]
   }
 }

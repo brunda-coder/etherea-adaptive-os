@@ -17,7 +17,6 @@ readonly ALLOWLIST_OUTSIDE_WEBOS=(
   "corund/assets/avatar.png"
   "corund/assets/avatar_hero/base.png"
   "corund/assets/avatar_hero/indian_mentor.png"
-  "exports/export_20260114_1424.zip"
 )
 
 declare -A allow_map=()
